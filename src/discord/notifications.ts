@@ -84,7 +84,10 @@ export async function sendFailureNotification(
     embed.addFields({ name: 'Commits', value: commitText })
   }
 
-  const truncatedLog = logTail.slice(-1900)
+  const maxLogLength = 1000
+  const truncatedLog = logTail.length > maxLogLength
+    ? '...' + logTail.slice(-(maxLogLength - 3))
+    : logTail
   embed.addFields({
     name: 'Build output (last lines)',
     value: '```\n' + truncatedLog + '\n```',
