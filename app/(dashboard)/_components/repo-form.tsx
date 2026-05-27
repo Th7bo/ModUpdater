@@ -3,10 +3,12 @@
 import { useActionState } from 'react'
 import type { ActionState } from '@/app/(dashboard)/actions'
 import type { PublicRepo } from '@/src/db/queries/repos'
+import { SshKeySection } from './ssh-key-section'
 
 type Props = {
   action: (prevState: ActionState, formData: FormData) => Promise<ActionState>
-  defaultValues?: Partial<PublicRepo>
+  defaultValues?: Partial<PublicRepo> & { sshPublicKey?: string | null }
+  repoId?: string
   submitLabel: string
 }
 
@@ -17,7 +19,7 @@ const labelCls = 'text-sm font-medium text-gray-700'
 const hintCls  = 'text-xs text-gray-500'
 const errCls   = 'text-xs text-red-600'
 
-export function RepoForm({ action, defaultValues, submitLabel }: Props) {
+export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) {
   const [state, formAction, pending] = useActionState(action, {})
   const errs = state.errors ?? {}
 
@@ -95,19 +97,11 @@ export function RepoForm({ action, defaultValues, submitLabel }: Props) {
         <p className={hintCls}>Write-only — current value is never shown</p>
       </div>
 
-      <div className={fieldCls}>
-        <label className={labelCls} htmlFor="sshPrivateKeyContent">SSH private key</label>
-        <textarea
-          className={inputCls + ' font-mono text-xs'}
-          id="sshPrivateKeyContent"
-          name="sshPrivateKeyContent"
-          rows={6}
-          placeholder="Paste private key to update"
-          autoComplete="off"
-        />
-        <p className={hintCls}>Write-only — required for fork repos using SSH. Key is stored on disk with 600 permissions.</p>
-        {errs.sshPrivateKeyContent && <p className={errCls}>{errs.sshPrivateKeyContent.join(', ')}</p>}
-      </div>
+      <SshKeySection
+        repoId={repoId}
+        mode={defaultValues?.mode}
+        publicKey={defaultValues?.sshPublicKey}
+      />
 
       <div className="flex gap-2 items-center pt-2">
         <button type="submit" disabled={pending} className="btn btn-primary">

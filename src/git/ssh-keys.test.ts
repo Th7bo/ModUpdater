@@ -3,7 +3,19 @@ import { readFile, stat, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir, platform } from 'node:os'
 
-import { storeSshKey, removeSshKey } from './ssh-keys'
+import { storeSshKey, removeSshKey, generateSshKeyPair } from './ssh-keys'
+import { execSync } from 'node:child_process'
+
+function hasSshKeygen(): boolean {
+  try {
+    execSync('ssh-keygen -V', { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const sshKeygenAvailable = hasSshKeygen()
 
 const isWindows = platform() === 'win32'
 
@@ -74,6 +86,48 @@ describe('ssh-keys', () => {
       await expect(stat(keyPath)).rejects.toThrow()
 
       await expect(removeSshKey(keyPath)).resolves.not.toThrow()
+    })
+  })
+
+  describe.skipIf(!sshKeygenAvailable)('generateSshKeyPair', () => {
+    it('creates a valid key pair and returns the public key', async () => {
+      const result = await generateSshKeyPair('gen-test', testDir)
+
+      expect(result.privateKeyPath).toBe(join(testDir, 'repo-gen-test.pem'))
+      expect(result.publicKey).toMatch(/^ssh-ed25519 /)
+      expect(result.publicKey).toContain('modupdater-repo-gen-test')
+
+      const privateKey = await readFile(result.privateKeyPath, 'utf-8')
+      expect(privateKey).toContain('PRIVATE KEY')
+    })
+
+    it.skipIf(isWindows)('creates the private key with mode 0o600', async () => {
+      const result = await generateSshKeyPair('mode-test', testDir)
+
+      const stats = await stat(result.privateKeyPath)
+      const mode = stats.mode & 0o777
+      expect(mode).toBe(0o600)
+    })
+
+    it('overwrites existing keys when called twice for the same repoId', async () => {
+      const result1 = await generateSshKeyPair('overwrite-test', testDir)
+      const publicKey1 = result1.publicKey
+
+      const result2 = await generateSshKeyPair('overwrite-test', testDir)
+      const publicKey2 = result2.publicKey
+
+      expect(result1.privateKeyPath).toBe(result2.privateKeyPath)
+      expect(publicKey1).not.toBe(publicKey2)
+    })
+
+    it('creates the keys directory if it does not exist', async () => {
+      const nestedDir = join(testDir, 'nested', 'keys')
+
+      const result = await generateSshKeyPair('nested-test', nestedDir)
+
+      expect(result.privateKeyPath).toBe(join(nestedDir, 'repo-nested-test.pem'))
+      const privateKey = await readFile(result.privateKeyPath, 'utf-8')
+      expect(privateKey).toContain('PRIVATE KEY')
     })
   })
 })

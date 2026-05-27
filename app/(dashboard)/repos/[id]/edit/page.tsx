@@ -45,7 +45,7 @@ export default async function EditRepoPage({
         </div>
       )}
 
-      <RepoForm action={action} defaultValues={repo} submitLabel="Save changes" />
+      <RepoForm action={action} defaultValues={repo} repoId={id} submitLabel="Save changes" />
     </>
   )
 }
