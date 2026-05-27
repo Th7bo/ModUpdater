@@ -40,3 +40,10 @@ export async function updateRepo(
 export async function deleteRepo(db: Db, id: string): Promise<void> {
   await db.delete(repos).where(eq(repos.id, id))
 }
+
+export type PublicRepo = Omit<Repo, 'sshPrivateKeyPath' | 'webhookSecret'>
+
+export function toPublicRepo(repo: Repo): PublicRepo {
+  const { sshPrivateKeyPath: _1, webhookSecret: _2, ...safe } = repo
+  return safe
+}
