@@ -3,8 +3,10 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
-import { createRepo, updateRepo, deleteRepo } from '@/src/db/queries/repos'
+import { createRepo, updateRepo, deleteRepo, getRepo } from '@/src/db/queries/repos'
 import { CreateRepoSchema, UpdateRepoSchema } from '@/src/config/repo-schema'
+import { storeSshKey, removeSshKey } from '@/src/git/ssh-keys'
+import { parseConfig } from '@/src/config/env'
 
 export type ActionState = {
   errors?: Record<string, string[]>
@@ -53,7 +55,16 @@ export async function updateRepoAction(
     return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]> }
   }
 
-  const repo = await updateRepo(db, id, parsed.data)
+  const { sshPrivateKeyContent, ...repoData } = parsed.data
+  const patch: Record<string, unknown> = { ...repoData }
+
+  if (sshPrivateKeyContent) {
+    const config = parseConfig()
+    const keyPath = await storeSshKey(id, sshPrivateKeyContent, config.SSH_KEYS_DIR)
+    patch.sshPrivateKeyPath = keyPath
+  }
+
+  const repo = await updateRepo(db, id, patch)
   if (!repo) return { message: 'Repository not found' }
   redirect('/repos')
 }
@@ -61,6 +72,11 @@ export async function updateRepoAction(
 export async function deleteRepoAction(id: string): Promise<void> {
   const session = await auth()
   if (!session) throw new Error('Unauthorized')
+
+  const repo = await getRepo(db, id)
+  if (repo?.sshPrivateKeyPath) {
+    await removeSshKey(repo.sshPrivateKeyPath)
+  }
 
   await deleteRepo(db, id)
   redirect('/repos')
