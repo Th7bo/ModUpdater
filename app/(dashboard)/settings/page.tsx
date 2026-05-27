@@ -5,8 +5,8 @@ export default function SettingsPage() {
 
   return (
     <>
-      <h1>Settings</h1>
-      <div className="settings-grid">
+      <h1 className="text-2xl font-semibold mb-6">Settings</h1>
+      <div className="grid gap-3 max-w-2xl">
         <Row label="Build concurrency" value={String(cfg.BUILD_CONCURRENCY)} />
         <Row label="Debounce (ms)" value={String(cfg.DEBOUNCE_MS)} />
         <Row label="SSH keys directory" value={cfg.SSH_KEYS_DIR} />
@@ -19,9 +19,9 @@ export default function SettingsPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="setting-row">
-      <span className="setting-key">{label}</span>
-      <span className="setting-val">{value}</span>
+    <div className="flex gap-4 p-3 bg-slate-50 rounded-md text-sm">
+      <span className="font-medium text-slate-600 min-w-[200px]">{label}</span>
+      <span className="text-gray-900 font-mono">{value}</span>
     </div>
   )
 }

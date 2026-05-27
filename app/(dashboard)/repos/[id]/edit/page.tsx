@@ -18,8 +18,10 @@ export default async function EditRepoPage({
 
   return (
     <>
-      <Link href="/repos" className="back-link">← Back to repos</Link>
-      <h1>Edit {repo.name}</h1>
+      <Link href="/repos" className="text-sm text-blue-600 hover:underline inline-block mb-4">
+        ← Back to repos
+      </Link>
+      <h1 className="text-2xl font-semibold mb-6">Edit {repo.name}</h1>
       <RepoForm action={action} defaultValues={repo} submitLabel="Save changes" />
     </>
   )
