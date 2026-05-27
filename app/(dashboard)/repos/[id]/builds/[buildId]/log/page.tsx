@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { readFile } from 'node:fs/promises'
 import { join, resolve, relative } from 'node:path'
@@ -7,6 +6,7 @@ import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { getBuildRun } from '@/src/db/queries/build-runs'
 import { parseConfig } from '@/src/config/env'
+import { EmptyState, MetaPill, PageHeader, StatusBadge } from '@/app/(dashboard)/_components/dashboard-ui'
 
 function isPathWithinLogDir(logDir: string, targetPath: string): boolean {
   const resolvedLogDir = resolve(logDir)
@@ -42,41 +42,44 @@ export default async function BuildLogPage({
   }
 
   return (
-    <>
-      <Link href={`/repos/${id}/builds`} className="text-sm text-blue-600 hover:underline inline-block mb-4">
-        ← Back to build history
-      </Link>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="Persisted build log"
+        title={repo.name}
+        description={`Build ${build.id.slice(0, 8)} was triggered by ${build.triggeredBy}.`}
+        backHref={`/repos/${id}/builds`}
+        backLabel="Back to build history"
+      />
 
-      <h1 className="text-2xl font-semibold mb-2">Build Log: {repo.name}</h1>
-
-      <div className="mb-6 text-sm text-slate-600">
-        <p>
-          Status: <span className={build.status === 'success' ? 'text-green-600' : 'text-red-600'}>{build.status}</span>
-          {' | '}
-          Triggered by: {build.triggeredBy}
-          {' | '}
-          Started: {build.startedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
-          {build.finishedAt && (
-            <>
-              {' | '}
-              Finished: {build.finishedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
-            </>
-          )}
-        </p>
+      <div className="meta-strip">
+        <StatusBadge status={build.status} />
+        <MetaPill>Started {formatDate(build.startedAt)}</MetaPill>
+        {build.finishedAt && <MetaPill>Finished {formatDate(build.finishedAt)}</MetaPill>}
+        <MetaPill>{build.triggeredBy}</MetaPill>
       </div>
 
       {logContent ? (
-        <div className="bg-slate-900 text-slate-100 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-xs font-mono whitespace-pre-wrap">{logContent}</pre>
-        </div>
+        <section className="console-panel">
+          <div className="console-header">
+            <span>build.log</span>
+            <span>{build.logPath ?? 'stored log'}</span>
+          </div>
+          <pre className="console-body whitespace-pre-wrap">{logContent}</pre>
+        </section>
       ) : (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
-          <p className="text-slate-600 mb-2">Log file not available for this build.</p>
-          <p className="text-sm text-slate-400">
-            The log file may have been deleted or this build ran before log persistence was enabled.
-          </p>
-        </div>
+        <EmptyState
+          title="Log file unavailable"
+          description="The file may have been deleted, moved, or the build may have run before log persistence was enabled."
+        />
       )}
-    </>
+    </div>
   )
+}
+
+function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-BE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/Brussels',
+  }).format(date)
 }

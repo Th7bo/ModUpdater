@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/src/auth'
 import { createRepoAction } from '@/app/(dashboard)/actions'
 import { RepoForm } from '@/app/(dashboard)/_components/repo-form'
+import { PageHeader } from '@/app/(dashboard)/_components/dashboard-ui'
 
 export default async function NewRepoPage() {
   const session = await auth()
@@ -11,12 +11,15 @@ export default async function NewRepoPage() {
   }
 
   return (
-    <>
-      <Link href="/repos" className="text-sm text-blue-600 hover:underline inline-block mb-4">
-        ← Back to repos
-      </Link>
-      <h1 className="text-2xl font-semibold mb-6">Add repository</h1>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="Repository intake"
+        title="Add repository"
+        description="Connect a Fabric mod project, set the build trigger, and define the runtime channel used for notifications."
+        backHref="/repos"
+        backLabel="Back to repositories"
+      />
       <RepoForm action={createRepoAction} submitLabel="Add repository" />
-    </>
+    </div>
   )
 }

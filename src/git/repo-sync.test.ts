@@ -10,6 +10,7 @@ const mockGitInstance = {
       { hash: 'commit1', author: 'Author', message: 'First commit', date: '2024-01-01T00:00:00Z' },
     ],
   }),
+  env: vi.fn().mockReturnThis(),
 }
 
 vi.mock('simple-git', () => {

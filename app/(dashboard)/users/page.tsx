@@ -5,6 +5,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { listUsers } from '@/src/db/queries/users'
 import { RoleSelect } from './_components/role-select'
+import { EmptyState, PageHeader, Panel, StatTile, StatusBadge } from '@/app/(dashboard)/_components/dashboard-ui'
 
 export default async function UsersPage() {
   const session = await auth()
@@ -13,73 +14,84 @@ export default async function UsersPage() {
   }
 
   const users = await listUsers(db)
+  const admins = users.filter((user) => user.role === 'admin').length
 
   return (
-    <>
-      <h1 className="text-2xl font-semibold mb-6">User Management</h1>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="Access control"
+        title="User management"
+        description="Review authenticated users and adjust dashboard roles for repository operations."
+      />
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              {['Name', 'Email', 'Role', 'Actions'].map((h) => (
-                <th
-                  key={h}
-                  className="text-left px-3 py-2 border-b-2 border-slate-200 font-semibold text-slate-600"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-slate-50">
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
-                  <div className="flex items-center gap-2">
-                    {user.image && (
-                      <Image
-                        src={user.image}
-                        alt=""
-                        width={24}
-                        height={24}
-                        className="rounded-full"
-                        unoptimized
-                      />
-                    )}
-                    {user.name || '—'}
-                  </div>
-                </td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle text-slate-600">
-                  {user.email}
-                </td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
-                  <span
-                    className={
-                      user.role === 'admin'
-                        ? 'px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-800'
-                        : 'px-2 py-0.5 text-xs rounded bg-slate-100 text-slate-600'
-                    }
-                  >
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
-                  <RoleSelect
-                    userId={user.id}
-                    currentRole={user.role}
-                    isCurrentUser={user.id === session.user.id}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="metric-grid">
+        <StatTile label="Users" value={users.length} detail="Known authenticated accounts" />
+        <StatTile label="Admins" value={admins} detail="Can manage repositories" tone="warning" />
+        <StatTile label="Operators" value={users.length - admins} detail="Read and build access" tone="accent" />
+        <StatTile label="Current role" value={session.user.role} detail={session.user.email ?? 'Signed in'} tone="success" />
       </div>
 
-      {users.length === 0 && (
-        <p className="text-slate-500 text-center py-8">No users found.</p>
+      {users.length === 0 ? (
+        <EmptyState
+          title="No users found"
+          description="Users will appear after they authenticate with the configured provider."
+        />
+      ) : (
+        <Panel title="Accounts" subtitle="Role changes apply immediately after selection">
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  {['Name', 'Email', 'Role', 'Change Role'].map((heading) => (
+                    <th key={heading}>{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id}>
+                    <td>
+                      <div className="flex items-center gap-3">
+                        {user.image ? (
+                          <Image
+                            src={user.image}
+                            alt=""
+                            width={32}
+                            height={32}
+                            className="rounded-md"
+                            unoptimized
+                          />
+                        ) : (
+                          <span className="brand-mark !h-8 !w-8 !text-xs">{initials(user.name || user.email || 'U')}</span>
+                        )}
+                        <span className="cell-strong">{user.name || 'Unnamed user'}</span>
+                      </div>
+                    </td>
+                    <td className="cell-muted">{user.email}</td>
+                    <td><StatusBadge status={user.role} /></td>
+                    <td>
+                      <RoleSelect
+                        userId={user.id}
+                        currentRole={user.role}
+                        isCurrentUser={user.id === session.user.id}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       )}
-    </>
+    </div>
   )
+}
+
+function initials(value: string): string {
+  return value
+    .split(/\s|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
 }

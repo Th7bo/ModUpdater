@@ -34,17 +34,17 @@ export function BuildButton({ repoId }: Props) {
 
   const buttonText = () => {
     switch (status) {
-      case 'pending': return 'Starting…'
-      case 'triggered': return 'Triggered!'
+      case 'pending': return 'Starting...'
+      case 'triggered': return 'Triggered'
       case 'error': return 'Failed'
-      default: return 'Build'
+      default: return 'Run build'
     }
   }
 
   const buttonClass = () => {
-    if (status === 'triggered') return 'btn btn-success'
-    if (status === 'error') return 'btn btn-danger'
-    return 'btn btn-secondary'
+    if (status === 'triggered') return 'btn btn-success btn-sm'
+    if (status === 'error') return 'btn btn-danger btn-sm'
+    return 'btn btn-secondary btn-sm'
   }
 
   return (

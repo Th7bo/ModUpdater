@@ -23,7 +23,7 @@ function createGitInstance(dir: string, sshKeyPath?: string): SimpleGit {
     ]
   }
 
-  return simpleGit(options)
+  return simpleGit(options).env({ GIT_TERMINAL_PROMPT: '0' })
 }
 
 export async function ensureCloned(
@@ -51,7 +51,7 @@ export async function ensureCloned(
     ]
   }
 
-  const git = simpleGit(cloneOptions)
+  const git = simpleGit(cloneOptions).env({ GIT_TERMINAL_PROMPT: '0' })
   await git.clone(gitUrl, dir)
 }
 

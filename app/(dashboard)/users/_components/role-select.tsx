@@ -25,15 +25,15 @@ export function RoleSelect({ userId, currentRole, isCurrentUser }: RoleSelectPro
   }
 
   if (isCurrentUser) {
-    return <span className="text-xs text-slate-400">Cannot change own role</span>
+    return <span className="cell-muted text-xs">Current account</span>
   }
 
   return (
     <select
       value={role}
-      onChange={(e) => handleChange(e.target.value as 'user' | 'admin')}
+      onChange={(event) => handleChange(event.target.value as 'user' | 'admin')}
       disabled={isPending}
-      className="input text-sm py-1 px-2 w-24"
+      className="input input-compact max-w-32"
     >
       <option value="user">User</option>
       <option value="admin">Admin</option>

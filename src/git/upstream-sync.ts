@@ -22,7 +22,7 @@ function createGitInstance(dir: string, sshKeyPath?: string): SimpleGit {
     ]
   }
 
-  return simpleGit(options)
+  return simpleGit(options).env({ GIT_TERMINAL_PROMPT: '0' })
 }
 
 export async function ensureUpstreamRemote(

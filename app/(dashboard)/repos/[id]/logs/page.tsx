@@ -7,6 +7,7 @@ import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { getLatestBuildRun } from '@/src/db/queries/build-runs'
 import { parseConfig } from '@/src/config/env'
+import { EmptyState, MetaPill, PageHeader, StatusBadge } from '@/app/(dashboard)/_components/dashboard-ui'
 
 function isPathWithinLogDir(logDir: string, targetPath: string): boolean {
   const resolvedLogDir = resolve(logDir)
@@ -41,48 +42,53 @@ export default async function LogsPage({
   }
 
   return (
-    <>
-      <Link href="/repos" className="text-sm text-blue-600 hover:underline inline-block mb-4">
-        ← Back to repos
-      </Link>
-
-      <h1 className="text-2xl font-semibold mb-2">Build Log: {repo.name}</h1>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="Latest build log"
+        title={repo.name}
+        description="Inspect the most recent persisted build output for this repository."
+        backHref="/repos"
+        backLabel="Back to repositories"
+        actions={<Link href={`/repos/${id}/builds`} className="btn btn-secondary">All builds</Link>}
+      />
 
       {latestRun ? (
-        <div className="mb-6 text-sm text-slate-600">
-          <p>
-            Status: <span className={latestRun.status === 'success' ? 'text-green-600' : 'text-red-600'}>{latestRun.status}</span>
-            {' | '}
-            Triggered by: {latestRun.triggeredBy}
-            {' | '}
-            Started: {latestRun.startedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
-            {latestRun.finishedAt && (
-              <>
-                {' | '}
-                Finished: {latestRun.finishedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
-              </>
-            )}
-          </p>
+        <div className="meta-strip">
+          <StatusBadge status={latestRun.status} />
+          <MetaPill>Triggered by {latestRun.triggeredBy}</MetaPill>
+          <MetaPill>Started {formatDate(latestRun.startedAt)}</MetaPill>
+          {latestRun.finishedAt && <MetaPill>Finished {formatDate(latestRun.finishedAt)}</MetaPill>}
         </div>
       ) : (
-        <p className="text-slate-500 mb-6">No builds yet for this repository.</p>
+        <EmptyState
+          title="No builds yet"
+          description="Trigger a build or wait for polling or webhook activity to create a first log."
+        />
       )}
 
       {logContent ? (
-        <div className="bg-slate-900 text-slate-100 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-xs font-mono whitespace-pre-wrap">{logContent}</pre>
-        </div>
+        <section className="console-panel">
+          <div className="console-header">
+            <span>latest.log</span>
+            <span>{latestRun?.logPath ?? 'stored log'}</span>
+          </div>
+          <pre className="console-body whitespace-pre-wrap">{logContent}</pre>
+        </section>
       ) : latestRun ? (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
-          <p className="text-slate-600 mb-2">Log file not available for this build.</p>
-          <p className="text-sm text-slate-400">
-            The log file may have been deleted or this build ran before log persistence was enabled.
-          </p>
-          <Link href={`/repos/${id}/builds`} className="btn btn-secondary mt-4 inline-flex">
-            View all builds
-          </Link>
-        </div>
+        <EmptyState
+          title="Log file unavailable"
+          description="The build exists, but its persisted log file could not be found."
+          action={<Link href={`/repos/${id}/builds`} className="btn btn-secondary">View all builds</Link>}
+        />
       ) : null}
-    </>
+    </div>
   )
+}
+
+function formatDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-BE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/Brussels',
+  }).format(date)
 }

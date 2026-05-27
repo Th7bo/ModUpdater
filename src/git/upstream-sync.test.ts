@@ -11,6 +11,7 @@ const mockGitInstance = {
   status: vi.fn(),
   reset: vi.fn(),
   push: vi.fn(),
+  env: vi.fn().mockReturnThis(),
 }
 
 vi.mock('simple-git', () => ({

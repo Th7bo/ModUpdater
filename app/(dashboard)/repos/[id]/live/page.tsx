@@ -5,6 +5,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { LiveLogs } from '@/app/(dashboard)/_components/live-logs'
+import { PageHeader, StatusBadge } from '@/app/(dashboard)/_components/dashboard-ui'
 
 export default async function LiveLogsPage({
   params,
@@ -19,16 +20,29 @@ export default async function LiveLogsPage({
   if (!repo) notFound()
 
   return (
-    <main className="container">
-      <div className="mb-6">
-        <Link href={`/repos/${id}/edit`} className="text-blue-600 hover:underline text-sm">
-          ← Back to {repo.name}
-        </Link>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="Live stream"
+        title={repo.name}
+        description="Follow the active build log stream as the scheduler emits output."
+        backHref={`/repos/${id}/edit`}
+        backLabel={`Back to ${repo.name}`}
+        actions={(
+          <>
+            <Link href={`/repos/${id}/builds`} className="btn btn-secondary">Build history</Link>
+            <Link href={`/repos/${id}/artifacts`} className="btn btn-secondary">Artifacts</Link>
+          </>
+        )}
+      />
+
+      <div className="meta-strip">
+        <StatusBadge status={repo.syncPaused ? 'paused' : repo.lastBuildStatus} />
+        <span className="meta-pill">{repo.mode}</span>
+        <span className="meta-pill">{repo.branch}</span>
+        <span className="meta-pill">{repo.detectionMethod}</span>
       </div>
 
-      <h1 className="text-2xl font-bold mb-6">Live Build Logs: {repo.name}</h1>
-
       <LiveLogs repoId={id} />
-    </main>
+    </div>
   )
 }

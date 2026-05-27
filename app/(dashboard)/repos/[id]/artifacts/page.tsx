@@ -6,11 +6,12 @@ import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { listBuildRuns } from '@/src/db/queries/build-runs'
 import { parseConfig } from '@/src/config/env'
+import { EmptyState, PageHeader, Panel, StatusBadge } from '@/app/(dashboard)/_components/dashboard-ui'
 
 const cfg = parseConfig()
 
 function formatDate(date: Date | null): string {
-  if (!date) return '—'
+  if (!date) return 'unknown finish time'
   return new Intl.DateTimeFormat('en-BE', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -44,90 +45,88 @@ export default async function ArtifactsPage({
 
   const builds = await listBuildRuns(db, id, 3)
   const successfulBuilds = builds.filter(
-    (b) => b.status === 'success' && b.artifactPathsJson
+    (build) => build.status === 'success' && build.artifactPathsJson
   )
+  const artifactCount = successfulBuilds.reduce((count, build) => count + parseArtifacts(build.artifactPathsJson).length, 0)
 
   return (
-    <main className="container">
-      <div className="mb-6">
-        <Link href={`/repos/${id}/edit`} className="text-blue-600 hover:underline text-sm">
-          ← Back to {repo.name}
-        </Link>
-      </div>
-
-      <h1 className="text-2xl font-bold mb-6">Artifacts: {repo.name}</h1>
+    <div className="page-stack">
+      <PageHeader
+        eyebrow="Artifacts"
+        title={repo.name}
+        description="Download the latest generated mod artifacts from successful build runs."
+        backHref={`/repos/${id}/edit`}
+        backLabel={`Back to ${repo.name}`}
+        actions={<Link href={`/repos/${id}/builds`} className="btn btn-secondary">Build history</Link>}
+      />
 
       {successfulBuilds.length === 0 ? (
-        <p className="text-gray-500">No successful builds with artifacts yet.</p>
+        <EmptyState
+          title="No artifacts available"
+          description="Successful builds with recorded artifact paths will appear here for download."
+        />
       ) : (
-        <div className="space-y-6">
-          {successfulBuilds.map((build) => {
-            let artifacts: Artifact[] = []
-            try {
-              const parsed = JSON.parse(build.artifactPathsJson || '[]')
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                if (typeof parsed[0] === 'string') {
-                  artifacts = parsed.map((p: string) => ({
-                    filename: p.split('/').pop() || p,
-                    path: p,
-                    size: 0,
-                  }))
-                } else {
-                  artifacts = parsed
-                }
-              }
-            } catch {
-              artifacts = []
-            }
+        <Panel title="Recent deliverables" subtitle={`${artifactCount} artifact${artifactCount === 1 ? '' : 's'} across the latest successful builds`}>
+          <div className="space-y-5">
+            {successfulBuilds.map((build) => {
+              const artifacts = parseArtifacts(build.artifactPathsJson)
 
-            return (
-              <div key={build.id} className="card">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h2 className="font-semibold">
-                      Build {build.id.slice(0, 8)}
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                      {formatDate(build.finishedAt)} • {build.triggeredBy}
-                    </p>
+              return (
+                <section key={build.id} className="border-b border-[var(--line)] pb-5 last:border-0 last:pb-0">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="panel-title">Build {build.id.slice(0, 8)}</h2>
+                      <p className="panel-subtitle">{formatDate(build.finishedAt)} by {build.triggeredBy}</p>
+                    </div>
+                    <StatusBadge status="success" />
                   </div>
-                  <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800">
-                    Success
-                  </span>
-                </div>
 
-                {artifacts.length > 0 ? (
-                  <ul className="space-y-2">
-                    {artifacts.map((artifact, idx) => (
-                      <li key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-mono text-sm truncate">
-                          {artifact.filename}
-                        </span>
-                        <div className="flex items-center gap-4">
-                          {artifact.size > 0 && (
-                            <span className="text-xs text-gray-500">
-                              {formatFileSize(artifact.size)}
-                            </span>
-                          )}
+                  {artifacts.length > 0 ? (
+                    <div className="artifact-list">
+                      {artifacts.map((artifact, index) => (
+                        <div key={`${artifact.path}-${index}`} className="artifact-row">
+                          <div className="min-w-0">
+                            <div className="cell-code truncate">{artifact.filename}</div>
+                            {artifact.size > 0 && <div className="cell-muted text-xs">{formatFileSize(artifact.size)}</div>}
+                          </div>
                           <a
                             href={`${cfg.BASE_URL}/api/artifacts/${build.id}/${encodeURIComponent(artifact.filename)}`}
-                            className="btn btn-sm btn-primary"
+                            className="btn btn-primary btn-sm"
                             download
                           >
                             Download
                           </a>
                         </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-500">No artifacts recorded</p>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="cell-muted text-sm">No artifact entries were recorded for this run.</p>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+        </Panel>
       )}
-    </main>
+    </div>
   )
+}
+
+function parseArtifacts(raw: string | null): Artifact[] {
+  try {
+    const parsed = JSON.parse(raw || '[]')
+    if (!Array.isArray(parsed) || parsed.length === 0) return []
+
+    if (typeof parsed[0] === 'string') {
+      return parsed.map((path: string) => ({
+        filename: path.split('/').pop() || path,
+        path,
+        size: 0,
+      }))
+    }
+
+    return parsed as Artifact[]
+  } catch {
+    return []
+  }
 }

@@ -38,9 +38,9 @@ export function ReenableSyncButton({ repoId }: Props) {
     <button
       onClick={handleClick}
       disabled={pending}
-      className="btn btn-warning"
+      className="btn btn-warning btn-sm"
     >
-      {pending ? 'Re-enabling...' : 'Re-enable sync'}
+      {pending ? 'Re-enabling...' : 'Resume sync'}
     </button>
   )
 }

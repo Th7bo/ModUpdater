@@ -14,8 +14,8 @@ export function DeleteButton({ id }: { id: string }) {
   }
 
   return (
-    <button onClick={handleClick} disabled={pending} className="btn btn-danger">
-      {pending ? 'Deleting…' : 'Delete'}
+    <button onClick={handleClick} disabled={pending} className="btn btn-danger btn-sm">
+      {pending ? 'Deleting...' : 'Delete'}
     </button>
   )
 }
