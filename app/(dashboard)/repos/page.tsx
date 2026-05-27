@@ -23,49 +23,56 @@ export default async function ReposPage() {
           to get started.
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              {['Name', 'Mode', 'Branch', 'Detection', 'Status', 'Actions'].map((h) => (
-                <th key={h} className="text-left px-3 py-2 border-b-2 border-slate-200 font-semibold text-slate-600">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {repos.map((repo) => (
-              <tr key={repo.id} className="hover:bg-slate-50">
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.name}</td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.mode}</td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.branch}</td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.detectionMethod}</td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
-                  <span className={statusClass(repo.lastBuildStatus)}>
-                    {repo.lastBuildStatus ?? 'none'}
-                  </span>
-                  {repo.syncPaused && (
-                    <span className="ml-2 text-xs text-orange-600 font-medium">(paused)</span>
-                  )}
-                </td>
-                <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
-                  <div className="flex gap-2 items-center">
-                    <Link href={`/repos/${repo.id}/edit`} className="btn btn-secondary">Edit</Link>
-                    {repo.syncPaused ? (
-                      <ReenableSyncButton repoId={repo.id} />
-                    ) : (
-                      <BuildButton repoId={repo.id} />
-                    )}
-                    {repo.lastBuildAt && (
-                      <Link href={`/repos/${repo.id}/logs`} className="btn btn-secondary">Logs</Link>
-                    )}
-                    <DeleteButton id={repo.id} />
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr>
+                {['Name', 'Mode', 'Branch', 'Status', 'Last Build', 'Last Commit', 'Actions'].map((h) => (
+                  <th key={h} className="text-left px-3 py-2 border-b-2 border-slate-200 font-semibold text-slate-600 whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {repos.map((repo) => (
+                <tr key={repo.id} className="hover:bg-slate-50">
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.name}</td>
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.mode}</td>
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle">{repo.branch}</td>
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
+                    <span className={statusClass(repo.lastBuildStatus)}>
+                      {repo.lastBuildStatus ?? 'none'}
+                    </span>
+                    {repo.syncPaused && (
+                      <span className="ml-2 text-xs text-orange-600 font-medium">(paused)</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle text-slate-600 whitespace-nowrap">
+                    {repo.lastBuildAt ? formatDate(repo.lastBuildAt) : '—'}
+                  </td>
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle font-mono text-xs text-slate-600">
+                    {repo.lastCommitHash ? repo.lastCommitHash.slice(0, 7) : '—'}
+                  </td>
+                  <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
+                    <div className="flex gap-2 items-center">
+                      <Link href={`/repos/${repo.id}/edit`} className="btn btn-secondary">Edit</Link>
+                      {repo.syncPaused ? (
+                        <ReenableSyncButton repoId={repo.id} />
+                      ) : (
+                        <BuildButton repoId={repo.id} />
+                      )}
+                      {repo.lastBuildAt && (
+                        <Link href={`/repos/${repo.id}/logs`} className="btn btn-secondary">Logs</Link>
+                      )}
+                      <DeleteButton id={repo.id} />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   )
@@ -79,4 +86,19 @@ function statusClass(status: Repo['lastBuildStatus']) {
     case 'paused':  return 'status status-paused'
     default:        return 'status status-none'
   }
+}
+
+function formatDate(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
