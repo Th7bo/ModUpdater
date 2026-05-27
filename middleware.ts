@@ -4,17 +4,29 @@ import { authConfig } from '@/src/auth.config'
 
 const { auth } = NextAuth(authConfig)
 
+// Public routes that don't require authentication
+const publicRoutes = [
+  '/api/auth',
+  '/api/webhooks',
+  '/api/artifacts', // Artifact downloads are public (accessed via Discord)
+  '/api/health',    // Health check for monitoring
+  '/login',
+]
+
 export default auth((req) => {
   const { nextUrl } = req
   const isLoggedIn = !!req.auth
 
-  if (
-    nextUrl.pathname.startsWith('/api/auth') ||
-    nextUrl.pathname.startsWith('/api/webhooks')
-  ) {
+  // Check if route is public
+  const isPublicRoute = publicRoutes.some((route) =>
+    nextUrl.pathname.startsWith(route)
+  )
+
+  if (isPublicRoute) {
     return NextResponse.next()
   }
 
+  // API routes require auth
   if (nextUrl.pathname.startsWith('/api/')) {
     if (!isLoggedIn) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -22,7 +34,8 @@ export default auth((req) => {
     return NextResponse.next()
   }
 
-  if (!isLoggedIn && nextUrl.pathname !== '/login') {
+  // Dashboard routes require auth
+  if (!isLoggedIn) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 

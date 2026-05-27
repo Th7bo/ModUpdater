@@ -1,6 +1,13 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/src/auth'
 import { parseConfig } from '@/src/config/env'
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const session = await auth()
+  if (!session || session.user.role !== 'admin') {
+    redirect('/repos')
+  }
+
   const cfg = parseConfig()
 
   return (

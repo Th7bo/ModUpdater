@@ -55,11 +55,11 @@ export default async function BuildLogPage({
           {' | '}
           Triggered by: {build.triggeredBy}
           {' | '}
-          Started: {build.startedAt.toLocaleString()}
+          Started: {build.startedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
           {build.finishedAt && (
             <>
               {' | '}
-              Finished: {build.finishedAt.toLocaleString()}
+              Finished: {build.finishedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
             </>
           )}
         </p>

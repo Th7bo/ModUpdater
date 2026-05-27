@@ -58,7 +58,7 @@ export default async function BuildsPage({
                     {build.triggeredBy}
                   </td>
                   <td className="px-3 py-2.5 border-b border-slate-100 align-middle text-slate-600">
-                    {build.startedAt.toLocaleString()}
+                    {build.startedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
                   </td>
                   <td className="px-3 py-2.5 border-b border-slate-100 align-middle text-slate-600">
                     {build.finishedAt ? formatDuration(build.startedAt, build.finishedAt) : '—'}

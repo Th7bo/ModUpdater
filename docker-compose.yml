@@ -28,18 +28,20 @@ services:
       - app_repos:/app/data/repos
       - app_keys:/app/data/keys
       - app_logs:/app/data/logs
+      - app_artifacts:/app/data/artifacts
+      - gradle_cache:/root/.gradle
+    env_file:
+      - .env.local
     environment:
       - DATABASE_URL=postgresql://modupdater:modupdater@db:5432/modupdater
-      - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_URL=http://localhost:3000
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - RESEND_API_KEY=${RESEND_API_KEY}
-      - AUTH_EMAIL_FROM=${AUTH_EMAIL_FROM}
-      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
       - REPOS_DIR=/app/data/repos
       - SSH_KEYS_DIR=/app/data/keys
       - LOG_DIR=/app/data/logs
+      - ARTIFACTS_DIR=/app/data/artifacts
+      - BASE_URL=http://localhost:3000
+      - GRADLE_USER_HOME=/root/.gradle
+      - GRADLE_OPTS=-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.caching=true
     depends_on:
       db:
         condition: service_healthy
@@ -52,3 +54,5 @@ volumes:
   app_repos:
   app_keys:
   app_logs:
+  app_artifacts:
+  gradle_cache:

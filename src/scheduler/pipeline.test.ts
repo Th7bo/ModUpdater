@@ -11,6 +11,7 @@ const mockDetectStonecutter = vi.fn()
 const mockSelectBuildTask = vi.fn()
 const mockRunBuild = vi.fn()
 const mockCollectArtifacts = vi.fn()
+const mockStoreArtifacts = vi.fn()
 const mockSendSuccessNotification = vi.fn()
 const mockSendFailureNotification = vi.fn()
 const mockToPublicRepo = vi.fn((repo) => repo)
@@ -20,6 +21,8 @@ vi.mock('@/src/config/env', () => ({
   parseConfig: vi.fn(() => ({
     REPOS_DIR: './data/repos',
     LOG_DIR: './data/logs',
+    ARTIFACTS_DIR: './data/artifacts',
+    BASE_URL: 'http://localhost:3000',
     DEBOUNCE_MS: 60000,
     BUILD_CONCURRENCY: 2,
   })),
@@ -63,6 +66,7 @@ vi.mock('@/src/builder/runner', () => ({
 
 vi.mock('@/src/builder/artifacts', () => ({
   collectArtifacts: (...args: unknown[]) => mockCollectArtifacts(...args),
+  storeArtifacts: (...args: unknown[]) => mockStoreArtifacts(...args),
 }))
 
 vi.mock('@/src/discord/notifications', () => ({
@@ -100,6 +104,10 @@ const mockCommits = [
   { hash: 'new-hash', author: 'Dev', message: 'Add feature', date: new Date() },
 ]
 
+const mockStoredArtifacts = [
+  { filename: 'mod.jar', path: '/data/artifacts/build-123/mod.jar', size: 1000 },
+]
+
 describe('triggerBuild', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -110,6 +118,7 @@ describe('triggerBuild', () => {
     mockSelectBuildTask.mockReturnValue('build')
     mockRunBuild.mockResolvedValue({ success: true, logTail: 'BUILD SUCCESSFUL', durationMs: 5000 })
     mockCollectArtifacts.mockResolvedValue(['/path/to/mod.jar'])
+    mockStoreArtifacts.mockResolvedValue(mockStoredArtifacts)
     mockSendSuccessNotification.mockResolvedValue(undefined)
     mockSendFailureNotification.mockResolvedValue(undefined)
     mockCreateBuildRun.mockResolvedValue({})
@@ -122,11 +131,15 @@ describe('triggerBuild', () => {
     expect(mockEnsureCloned).toHaveBeenCalled()
     expect(mockFetchLatest).toHaveBeenCalled()
     expect(mockRunBuild).toHaveBeenCalled()
+    expect(mockStoreArtifacts).toHaveBeenCalled()
     expect(mockSendSuccessNotification).toHaveBeenCalledWith(
-      '123456789',
-      expect.objectContaining({ name: 'TestMod' }),
-      mockCommits,
-      ['/path/to/mod.jar']
+      expect.objectContaining({
+        channelId: '123456789',
+        repo: expect.objectContaining({ name: 'TestMod' }),
+        commits: mockCommits,
+        artifacts: mockStoredArtifacts,
+        baseUrl: 'http://localhost:3000',
+      })
     )
     expect(mockCreateBuildRun).toHaveBeenCalledWith(
       expect.anything(),

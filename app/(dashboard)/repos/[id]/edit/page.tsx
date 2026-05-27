@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { headers } from 'next/headers'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { updateRepoAction } from '@/app/(dashboard)/actions'
@@ -12,6 +13,11 @@ export default async function EditRepoPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const session = await auth()
+  if (!session || session.user.role !== 'admin') {
+    redirect('/repos')
+  }
+
   const { id } = await params
   const repo = await getRepo(db, id)
   if (!repo) notFound()
@@ -29,6 +35,27 @@ export default async function EditRepoPage({
         ← Back to repos
       </Link>
       <h1 className="text-2xl font-semibold mb-6">Edit {repo.name}</h1>
+
+      <div className="mb-6 flex gap-4">
+        <Link
+          href={`/repos/${id}/live`}
+          className="btn btn-primary text-sm"
+        >
+          Live Logs
+        </Link>
+        <Link
+          href={`/repos/${id}/builds`}
+          className="btn btn-secondary text-sm"
+        >
+          Build History
+        </Link>
+        <Link
+          href={`/repos/${id}/artifacts`}
+          className="btn btn-secondary text-sm"
+        >
+          Artifacts
+        </Link>
+      </div>
 
       {repo.detectionMethod === 'webhook' && (
         <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200 max-w-2xl">

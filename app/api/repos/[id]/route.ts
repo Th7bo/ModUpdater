@@ -7,6 +7,7 @@ import { UpdateRepoSchema } from '@/src/config/repo-schema'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
+// GET: Any authenticated user can view repo details
 export async function GET(_req: Request, { params }: RouteContext) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -18,9 +19,13 @@ export async function GET(_req: Request, { params }: RouteContext) {
   return NextResponse.json(toPublicRepo(repo))
 }
 
+// PATCH: Admin only - update repo
 export async function PATCH(req: Request, { params }: RouteContext) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+  }
 
   const { id } = await params
   const body: unknown = await req.json()
@@ -35,9 +40,13 @@ export async function PATCH(req: Request, { params }: RouteContext) {
   return NextResponse.json(toPublicRepo(repo))
 }
 
+// DELETE: Admin only - delete repo
 export async function DELETE(_req: Request, { params }: RouteContext) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+  }
 
   const { id } = await params
   const repo = await getRepo(db, id)
