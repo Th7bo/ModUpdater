@@ -2,3 +2,4 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  zlib-sync: set this to true or false

@@ -73,7 +73,15 @@ export default async function LogsPage({
           <pre className="text-xs font-mono whitespace-pre-wrap">{logContent}</pre>
         </div>
       ) : latestRun ? (
-        <p className="text-slate-500">Log file not available.</p>
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center">
+          <p className="text-slate-600 mb-2">Log file not available for this build.</p>
+          <p className="text-sm text-slate-400">
+            The log file may have been deleted or this build ran before log persistence was enabled.
+          </p>
+          <Link href={`/repos/${id}/builds`} className="btn btn-secondary mt-4 inline-flex">
+            View all builds
+          </Link>
+        </div>
       ) : null}
     </>
   )
