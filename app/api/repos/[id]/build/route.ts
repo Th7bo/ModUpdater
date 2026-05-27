@@ -29,7 +29,7 @@ export async function POST(_req: Request, { params }: RouteContext) {
 
   console.log(`[manual] Build triggered for repo ${repo.name} (${id})`)
   
-  triggerBuild(id, 'manual').catch((err) => {
+  triggerBuild(id, { source: 'manual', force: true }).catch((err) => {
     console.error(`[manual] Build failed for ${repo.name}:`, err)
   })
 
