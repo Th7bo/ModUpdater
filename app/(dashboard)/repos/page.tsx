@@ -62,9 +62,9 @@ export default async function ReposPage() {
                       ) : (
                         <BuildButton repoId={repo.id} />
                       )}
-                      {repo.lastBuildAt && (
-                        <Link href={`/repos/${repo.id}/logs`} className="btn btn-secondary">Logs</Link>
-                      )}
+                    {repo.lastBuildAt && (
+                      <Link href={`/repos/${repo.id}/builds`} className="btn btn-secondary">History</Link>
+                    )}
                       <DeleteButton id={repo.id} />
                     </div>
                   </td>
