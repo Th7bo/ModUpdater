@@ -95,6 +95,20 @@ export function RepoForm({ action, defaultValues, submitLabel }: Props) {
         <p className={hintCls}>Write-only — current value is never shown</p>
       </div>
 
+      <div className={fieldCls}>
+        <label className={labelCls} htmlFor="sshPrivateKeyContent">SSH private key</label>
+        <textarea
+          className={inputCls + ' font-mono text-xs'}
+          id="sshPrivateKeyContent"
+          name="sshPrivateKeyContent"
+          rows={6}
+          placeholder="Paste private key to update"
+          autoComplete="off"
+        />
+        <p className={hintCls}>Write-only — required for fork repos using SSH. Key is stored on disk with 600 permissions.</p>
+        {errs.sshPrivateKeyContent && <p className={errCls}>{errs.sshPrivateKeyContent.join(', ')}</p>}
+      </div>
+
       <div className="flex gap-2 items-center pt-2">
         <button type="submit" disabled={pending} className="btn btn-primary">
           {pending ? 'Saving…' : submitLabel}

@@ -16,5 +16,9 @@ services:
       timeout: 5s
       retries: 5
 
+# Future app service volumes (uncomment when app service is added):
+# - ./data/repos:/app/data/repos
+# - ./data/keys:/app/data/keys
+
 volumes:
   postgres_data:

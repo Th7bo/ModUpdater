@@ -13,7 +13,9 @@ export const CreateRepoSchema = z.object({
   upstreamUrl: z.string().url().optional(),
 })
 
-export const UpdateRepoSchema = CreateRepoSchema.partial()
+export const UpdateRepoSchema = CreateRepoSchema.partial().extend({
+  sshPrivateKeyContent: z.string().optional(),
+})
 
 export type CreateRepoInput = z.infer<typeof CreateRepoSchema>
 export type UpdateRepoInput = z.infer<typeof UpdateRepoSchema>

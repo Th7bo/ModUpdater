@@ -11,6 +11,7 @@ const envSchema = z.object({
   BUILD_CONCURRENCY: z.coerce.number().int().positive().default(2),
   DEBOUNCE_MS: z.coerce.number().int().positive().default(60000),
   SSH_KEYS_DIR: z.string().default('./data/keys'),
+  REPOS_DIR: z.string().default('./data/repos'),
   DEFAULT_DISCORD_CHANNEL_ID: z.string().default(''),
   DEFAULT_POLLING_INTERVAL_MS: z.coerce.number().int().positive().default(900000),
 })
