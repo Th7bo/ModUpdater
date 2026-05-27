@@ -2,7 +2,10 @@ import { z } from 'zod'
 
 export const CreateRepoSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  gitUrl: z.string().url('Must be a valid URL'),
+  gitUrl: z.string().min(1, 'Git URL is required').refine(
+    (v) => /^(https?:\/\/.+|git@.+:.+\.git)$/.test(v),
+    'Must be a valid HTTPS or SSH git URL'
+  ),
   mode: z.enum(['upstream', 'fork']),
   branch: z.string().min(1, 'Branch is required'),
   detectionMethod: z.enum(['polling', 'webhook']),
@@ -11,7 +14,10 @@ export const CreateRepoSchema = z.object({
   customBuildTask: z.string().optional(),
   jdkVersion: z.enum(['21', '25']).optional(),
   webhookSecret: z.string().optional(),
-  upstreamUrl: z.string().url().optional(),
+  upstreamUrl: z.string().refine(
+    (v) => /^(https?:\/\/.+|git@.+:.+\.git)$/.test(v),
+    'Must be a valid HTTPS or SSH git URL'
+  ).optional(),
 })
 
 export const UpdateRepoSchema = CreateRepoSchema.partial().extend({
