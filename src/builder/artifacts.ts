@@ -24,17 +24,14 @@ async function collectFromDir(dir: string): Promise<string[]> {
   }
 }
 
-export async function collectArtifacts(repoDir: string): Promise<string[]> {
+async function collectFromSubdirs(baseDir: string): Promise<string[]> {
   const artifacts: string[] = []
 
-  const mainBuildLibs = join(repoDir, 'build', 'libs')
-  artifacts.push(...(await collectFromDir(mainBuildLibs)))
-
   try {
-    const entries = await readdir(repoDir)
+    const entries = await readdir(baseDir)
 
     for (const entry of entries) {
-      const entryPath = join(repoDir, entry)
+      const entryPath = join(baseDir, entry)
       const entryStat = await stat(entryPath).catch(() => null)
 
       if (entryStat?.isDirectory()) {
@@ -43,8 +40,22 @@ export async function collectArtifacts(repoDir: string): Promise<string[]> {
       }
     }
   } catch {
-    // ignore if we can't read repoDir
+    // ignore if we can't read baseDir
   }
+
+  return artifacts
+}
+
+export async function collectArtifacts(repoDir: string): Promise<string[]> {
+  const artifacts: string[] = []
+
+  const mainBuildLibs = join(repoDir, 'build', 'libs')
+  artifacts.push(...(await collectFromDir(mainBuildLibs)))
+
+  artifacts.push(...(await collectFromSubdirs(repoDir)))
+
+  const versionsDir = join(repoDir, 'versions')
+  artifacts.push(...(await collectFromSubdirs(versionsDir)))
 
   return artifacts
 }

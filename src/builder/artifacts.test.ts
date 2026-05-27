@@ -73,4 +73,35 @@ describe('collectArtifacts', () => {
 
     expect(artifacts).toEqual([])
   })
+
+  it('collects JARs from versions/ subdirectory (Stonecutter layout)', async () => {
+    mockReaddir.mockImplementation((dir: string) => {
+      if (dir === '/repos/test') {
+        return Promise.resolve(['versions', 'src'])
+      }
+      if (dir.endsWith('versions') || dir.endsWith('versions\\')) {
+        return Promise.resolve(['1.21.10', '1.21.11'])
+      }
+      if (dir.includes('1.21.10') && (dir.endsWith('build/libs') || dir.endsWith('build\\libs'))) {
+        return Promise.resolve(['SkyOcean-1.21.10-1.15.2.jar', 'SkyOcean-1.21.10-1.15.2-sources.jar'])
+      }
+      if (dir.includes('1.21.11') && (dir.endsWith('build/libs') || dir.endsWith('build\\libs'))) {
+        return Promise.resolve(['SkyOcean-1.21.11-1.15.2.jar', 'SkyOcean-1.21.11-1.15.2-sources.jar'])
+      }
+      return Promise.resolve([])
+    })
+    mockStat.mockImplementation((path: string) => {
+      if (path.includes('versions') || path.includes('1.21.10') || path.includes('1.21.11') || path.includes('src')) {
+        return Promise.resolve({ isDirectory: () => true })
+      }
+      return Promise.resolve({ isDirectory: () => false })
+    })
+
+    const artifacts = await collectArtifacts('/repos/test')
+
+    expect(artifacts).toHaveLength(2)
+    expect(artifacts.some((a) => a.includes('SkyOcean-1.21.10-1.15.2.jar'))).toBe(true)
+    expect(artifacts.some((a) => a.includes('SkyOcean-1.21.11-1.15.2.jar'))).toBe(true)
+    expect(artifacts.some((a) => a.includes('-sources.jar'))).toBe(false)
+  })
 })
