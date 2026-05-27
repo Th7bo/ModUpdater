@@ -12,6 +12,9 @@ export interface Commit {
 function createGitInstance(dir: string, sshKeyPath?: string): SimpleGit {
   const options: Partial<SimpleGitOptions> = {
     baseDir: dir,
+    unsafe: {
+      allowUnsafeSshCommand: true,
+    },
   }
 
   if (sshKeyPath) {
@@ -36,7 +39,11 @@ export async function ensureCloned(
     return
   }
 
-  const cloneOptions: Partial<SimpleGitOptions> = {}
+  const cloneOptions: Partial<SimpleGitOptions> = {
+    unsafe: {
+      allowUnsafeSshCommand: true,
+    },
+  }
 
   if (sshKeyPath) {
     cloneOptions.config = [

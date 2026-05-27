@@ -11,6 +11,9 @@ export interface MergeResult {
 function createGitInstance(dir: string, sshKeyPath?: string): SimpleGit {
   const options: Partial<SimpleGitOptions> = {
     baseDir: dir,
+    unsafe: {
+      allowUnsafeSshCommand: true,
+    },
   }
 
   if (sshKeyPath) {
