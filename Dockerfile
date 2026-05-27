@@ -1,5 +1,5 @@
 FROM node:22-alpine AS base
-RUN npm install -g pnpm@11
+RUN npm install -g pnpm@10
 
 # ─── Install dependencies ─────────────────────────────────────────────────────
 FROM base AS deps
@@ -34,7 +34,7 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
 # Install pnpm for running drizzle-kit push
-RUN npm install -g pnpm@11
+RUN npm install -g pnpm@10
 
 # Enable edge community repo for JDK 25 and install multiple JDK versions
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
