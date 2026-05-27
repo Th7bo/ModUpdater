@@ -33,8 +33,9 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
-# Install multiple JDK versions for per-repo selection
-RUN apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client \
+# Enable edge community repo for JDK 25 and install multiple JDK versions
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client \
     && addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
 

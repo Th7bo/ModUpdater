@@ -5,14 +5,14 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm@11
 
-# Install JDKs and git for builds
-RUN apk add --no-cache openjdk21-jdk git openssh-client
+# Enable edge community repo for JDK 25 and install JDKs
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client
 
-# Default JAVA_HOME
+# Default JAVA_HOME (can be overridden per-build)
 ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
 EXPOSE 3000
 
 # Install dependencies and start dev server
-# Using entrypoint script to handle npm install on mount
 CMD ["sh", "-c", "pnpm install && pnpm dev"]

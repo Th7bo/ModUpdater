@@ -25,6 +25,10 @@ function getJavaHome(version: JdkVersion): string | null {
   return `/usr/lib/jvm/java-${version}-openjdk`
 }
 
+export function getAvailableJdkVersions(): JdkVersion[] {
+  return ['21', '25']
+}
+
 export function runBuild(
   repoDir: string,
   task: string,
