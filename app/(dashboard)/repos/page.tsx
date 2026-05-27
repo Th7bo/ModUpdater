@@ -3,6 +3,7 @@ import { db } from '@/src/db/client'
 import { listRepos } from '@/src/db/queries/repos'
 import { DeleteButton } from '@/app/(dashboard)/_components/delete-button'
 import { BuildButton } from '@/app/(dashboard)/_components/build-button'
+import { ReenableSyncButton } from '@/app/(dashboard)/_components/reenable-sync-button'
 import type { Repo } from '@/src/db/queries/repos'
 
 export default async function ReposPage() {
@@ -43,11 +44,21 @@ export default async function ReposPage() {
                   <span className={statusClass(repo.lastBuildStatus)}>
                     {repo.lastBuildStatus ?? 'none'}
                   </span>
+                  {repo.syncPaused && (
+                    <span className="ml-2 text-xs text-orange-600 font-medium">(paused)</span>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
                   <div className="flex gap-2 items-center">
                     <Link href={`/repos/${repo.id}/edit`} className="btn btn-secondary">Edit</Link>
-                    <BuildButton repoId={repo.id} />
+                    {repo.syncPaused ? (
+                      <ReenableSyncButton repoId={repo.id} />
+                    ) : (
+                      <BuildButton repoId={repo.id} />
+                    )}
+                    {repo.lastBuildAt && (
+                      <Link href={`/repos/${repo.id}/logs`} className="btn btn-secondary">Logs</Link>
+                    )}
                     <DeleteButton id={repo.id} />
                   </div>
                 </td>

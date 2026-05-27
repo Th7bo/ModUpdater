@@ -41,6 +41,31 @@ export async function deleteRepo(db: Db, id: string): Promise<void> {
   await db.delete(repos).where(eq(repos.id, id))
 }
 
+export async function pauseRepo(
+  db: Db,
+  id: string,
+  reason?: string
+): Promise<Repo | null> {
+  const [row] = await db
+    .update(repos)
+    .set({ syncPaused: true, updatedAt: new Date() })
+    .where(eq(repos.id, id))
+    .returning()
+  if (reason) {
+    console.log(`[repos] Paused ${id}: ${reason}`)
+  }
+  return row ?? null
+}
+
+export async function unpauseRepo(db: Db, id: string): Promise<Repo | null> {
+  const [row] = await db
+    .update(repos)
+    .set({ syncPaused: false, updatedAt: new Date() })
+    .where(eq(repos.id, id))
+    .returning()
+  return row ?? null
+}
+
 export type PublicRepo = Omit<Repo, 'sshPrivateKeyPath' | 'webhookSecret'>
 
 export function toPublicRepo(repo: Repo): PublicRepo {

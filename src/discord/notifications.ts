@@ -92,3 +92,45 @@ export async function sendFailureNotification(
 
   await channel.send({ embeds: [embed] })
 }
+
+export async function sendConflictNotification(
+  channelId: string,
+  repo: PublicRepo,
+  upstreamUrl: string,
+  commitRange: string,
+  conflictingFiles: string[]
+): Promise<void> {
+  const client = getDiscordClient()
+  await waitForReady()
+
+  const channel = (await client.channels.fetch(channelId)) as TextChannel
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Merge conflict: ${repo.name}`)
+    .setColor(0xf97316)
+    .addFields(
+      { name: 'Fork', value: repo.gitUrl, inline: true },
+      { name: 'Upstream', value: upstreamUrl, inline: true },
+      { name: 'Branch', value: repo.branch, inline: true },
+      { name: 'Commit range', value: commitRange }
+    )
+
+  if (conflictingFiles.length > 0) {
+    const maxFiles = 15
+    const fileList = conflictingFiles.slice(0, maxFiles).join('\n')
+    const truncated = conflictingFiles.length > maxFiles
+      ? `\n... and ${conflictingFiles.length - maxFiles} more`
+      : ''
+    embed.addFields({
+      name: 'Conflicting files',
+      value: '```\n' + fileList + truncated + '\n```',
+    })
+  }
+
+  embed.addFields({
+    name: 'Action required',
+    value: 'Resolve the conflict manually, then use the dashboard to re-enable sync.',
+  })
+
+  await channel.send({ embeds: [embed] })
+}

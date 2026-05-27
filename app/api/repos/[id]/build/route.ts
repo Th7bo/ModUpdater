@@ -20,6 +20,13 @@ export async function POST(_req: Request, { params }: RouteContext) {
     return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
   }
 
+  if (repo.syncPaused) {
+    return NextResponse.json(
+      { error: 'Repository sync is paused. Re-enable sync before triggering builds.' },
+      { status: 409 }
+    )
+  }
+
   console.log(`[manual] Build triggered for repo ${repo.name} (${id})`)
   
   triggerBuild(id, 'manual').catch((err) => {

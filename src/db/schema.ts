@@ -84,11 +84,12 @@ export const buildRuns = pgTable('build_runs', {
     .references(() => repos.id, { onDelete: 'cascade' }),
   status: text('status', { enum: ['success', 'failed'] }).notNull(),
   triggeredBy: text('triggered_by', {
-    enum: ['poll', 'webhook', 'manual', 'rebase'],
+    enum: ['poll', 'webhook', 'manual', 'sync'],
   }).notNull(),
   commitsJson: text('commits_json').notNull(),
   artifactPathsJson: text('artifact_paths_json'),
   logTail: text('log_tail'),
+  logPath: text('log_path'),
   startedAt: timestamp('started_at').notNull(),
   finishedAt: timestamp('finished_at'),
 })

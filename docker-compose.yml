@@ -19,6 +19,7 @@ services:
 # Future app service volumes (uncomment when app service is added):
 # - ./data/repos:/app/data/repos
 # - ./data/keys:/app/data/keys
+# - ./data/logs:/app/data/logs
 
 volumes:
   postgres_data:
