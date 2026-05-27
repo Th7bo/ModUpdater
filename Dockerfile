@@ -33,9 +33,6 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
-# Install pnpm for running drizzle-kit push
-RUN npm install -g pnpm@11
-
 # Enable edge community repo for JDK 25 and install multiple JDK versions
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
     && apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client
@@ -60,4 +57,4 @@ ENV PORT=3000 \
     HOSTNAME=0.0.0.0
 
 # Run schema push then start server
-CMD ["sh", "-c", "pnpm drizzle-kit push && node server.js"]
+CMD ["sh", "-c", "node_modules/.bin/drizzle-kit push && node server.js"]
