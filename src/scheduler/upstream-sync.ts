@@ -13,7 +13,7 @@ import {
   abortMergeAndRestore,
   pushToOrigin,
 } from '@/src/git/upstream-sync'
-import { ensureCloned } from '@/src/git/repo-sync'
+import { ensureCloned, fetchLatest } from '@/src/git/repo-sync'
 import { createLogFile, appendLog, finalizeLog } from '@/src/logging/activity-log'
 import { sendConflictNotification } from '@/src/discord/notifications'
 import { triggerBuild } from './pipeline'
@@ -57,6 +57,9 @@ export async function syncForkUpstream(repoId: string): Promise<void> {
   try {
     await appendLog(logHandle!, `Ensuring repo is cloned...`)
     await ensureCloned(repo.gitUrl, repoDir, repo.sshPrivateKeyPath ?? undefined)
+
+    await appendLog(logHandle!, `Syncing local branch with fork remote...`)
+    await fetchLatest(repoDir, repo.branch, repo.sshPrivateKeyPath ?? undefined)
 
     await appendLog(logHandle!, `Setting up upstream remote: ${repo.upstreamUrl}`)
     await ensureUpstreamRemote(repoDir, repo.upstreamUrl, repo.sshPrivateKeyPath ?? undefined)
