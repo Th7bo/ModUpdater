@@ -1,4 +1,3 @@
 {
-  "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver"],
-  "dangerouslyAllowAllBuilds": true
+  "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver"]
 }
