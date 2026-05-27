@@ -7,7 +7,7 @@ import { getRepo, updateRepo } from '@/src/db/queries/repos'
 import { createBuildRun } from '@/src/db/queries/build-runs'
 import { ensureCloned, fetchLatest, getHeadHash, getNewCommits, type Commit } from '@/src/git/repo-sync'
 import { detectStonecutter, selectBuildTask } from '@/src/builder/stonecutter'
-import { runBuild } from '@/src/builder/runner'
+import { runBuild, type JdkVersion } from '@/src/builder/runner'
 import { collectArtifacts } from '@/src/builder/artifacts'
 import { sendSuccessNotification, sendFailureNotification } from '@/src/discord/notifications'
 import { toPublicRepo } from '@/src/db/queries/repos'
@@ -84,7 +84,8 @@ async function executeBuild(
     console.error(`[pipeline] Failed to create log file for ${repo.name}:`, err)
   }
 
-  const buildResult = await runBuild(repoDir, task, { logHandle })
+  const jdkVersion = (repo.jdkVersion ?? '21') as JdkVersion
+  const buildResult = await runBuild(repoDir, task, { logHandle, jdkVersion })
 
   if (logHandle) {
     try {

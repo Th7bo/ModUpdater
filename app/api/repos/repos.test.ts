@@ -35,6 +35,7 @@ const mockRepo = {
   pollingIntervalMs: null,
   discordChannelId: '123456789012345678',
   customBuildTask: null,
+  jdkVersion: '21' as const,
   sshPrivateKeyPath: '/data/keys/secret.pem',
   sshPublicKey: null,
   webhookSecret: 'super-secret-value',

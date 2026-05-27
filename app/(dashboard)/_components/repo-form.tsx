@@ -92,6 +92,15 @@ export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) 
       </div>
 
       <div className={fieldCls}>
+        <label className={labelCls} htmlFor="jdkVersion">JDK version</label>
+        <select className={inputCls} id="jdkVersion" name="jdkVersion" defaultValue={defaultValues?.jdkVersion ?? '21'}>
+          <option value="21">JDK 21</option>
+          <option value="25">JDK 25</option>
+        </select>
+        <p className={hintCls}>Select the Java version required by this mod</p>
+      </div>
+
+      <div className={fieldCls}>
         <label className={labelCls} htmlFor="webhookSecret">Webhook secret</label>
         <input className={inputCls} id="webhookSecret" name="webhookSecret" type="password" placeholder={defaultValues ? 'Leave blank to keep current' : ''} autoComplete="new-password" />
         <p className={hintCls}>Write-only — current value is never shown</p>
