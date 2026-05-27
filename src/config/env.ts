@@ -12,6 +12,7 @@ const envSchema = z.object({
   DEBOUNCE_MS: z.coerce.number().int().positive().default(60000),
   SSH_KEYS_DIR: z.string().default('./data/keys'),
   REPOS_DIR: z.string().default('./data/repos'),
+  LOG_DIR: z.string().default('./data/logs'),
   DEFAULT_DISCORD_CHANNEL_ID: z.string().default(''),
   DEFAULT_POLLING_INTERVAL_MS: z.coerce.number().int().positive().default(900000),
 })

@@ -13,7 +13,7 @@ import { sendSuccessNotification, sendFailureNotification } from '@/src/discord/
 import { toPublicRepo } from '@/src/db/queries/repos'
 import { enqueueBuild } from './build-queue'
 
-export type TriggerSource = 'poll' | 'webhook' | 'manual' | 'rebase'
+export type TriggerSource = 'poll' | 'webhook' | 'manual' | 'sync'
 
 export async function triggerBuild(
   repoId: string,

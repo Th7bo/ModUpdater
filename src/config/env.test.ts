@@ -71,4 +71,14 @@ describe('parseConfig', () => {
     const config = parseConfig({ ...validEnv, REPOS_DIR: '/custom/repos/path' })
     expect(config.REPOS_DIR).toBe('/custom/repos/path')
   })
+
+  it('defaults LOG_DIR to ./data/logs when absent', () => {
+    const config = parseConfig(validEnv)
+    expect(config.LOG_DIR).toBe('./data/logs')
+  })
+
+  it('uses custom LOG_DIR when provided', () => {
+    const config = parseConfig({ ...validEnv, LOG_DIR: '/custom/logs/path' })
+    expect(config.LOG_DIR).toBe('/custom/logs/path')
+  })
 })
