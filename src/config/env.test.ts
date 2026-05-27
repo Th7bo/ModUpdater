@@ -61,4 +61,14 @@ describe('parseConfig', () => {
       parseConfig({ ...validEnv, BUILD_CONCURRENCY: 'not-a-number' })
     ).toThrow(ZodError)
   })
+
+  it('defaults REPOS_DIR to ./data/repos when absent', () => {
+    const config = parseConfig(validEnv)
+    expect(config.REPOS_DIR).toBe('./data/repos')
+  })
+
+  it('uses custom REPOS_DIR when provided', () => {
+    const config = parseConfig({ ...validEnv, REPOS_DIR: '/custom/repos/path' })
+    expect(config.REPOS_DIR).toBe('/custom/repos/path')
+  })
 })
