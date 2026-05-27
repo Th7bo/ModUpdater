@@ -57,4 +57,4 @@ ENV PORT=3000 \
     HOSTNAME=0.0.0.0
 
 # Run schema push then start server
-CMD ["sh", "-c", "node_modules/.bin/drizzle-kit push && node server.js"]
+CMD ["sh", "-c", "node node_modules/drizzle-kit/bin.cjs push && node server.js"]
