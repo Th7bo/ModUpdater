@@ -45,7 +45,7 @@ export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) 
 
           <div className={`${fieldCls} md:col-span-2`}>
             <label className={labelCls} htmlFor="gitUrl">Git URL</label>
-            <input className={inputCls} id="gitUrl" name="gitUrl" type="url" required defaultValue={defaultValues?.gitUrl ?? ''} />
+            <input className={inputCls} id="gitUrl" name="gitUrl" type="text" required defaultValue={defaultValues?.gitUrl ?? ''} />
             {errs.gitUrl && <p className={errCls}>{errs.gitUrl.join(', ')}</p>}
           </div>
 
@@ -107,7 +107,7 @@ export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) 
 
           <div className={`${fieldCls} md:col-span-2`}>
             <label className={labelCls} htmlFor="upstreamUrl">Upstream URL</label>
-            <input className={inputCls} id="upstreamUrl" name="upstreamUrl" type="url" defaultValue={defaultValues?.upstreamUrl ?? ''} />
+            <input className={inputCls} id="upstreamUrl" name="upstreamUrl" type="text" defaultValue={defaultValues?.upstreamUrl ?? ''} />
             <p className={hintCls}>Required when mode is fork.</p>
             {errs.upstreamUrl && <p className={errCls}>{errs.upstreamUrl.join(', ')}</p>}
           </div>
