@@ -1,5 +1,5 @@
 import { mkdir, writeFile, appendFile, readdir, unlink, stat } from 'node:fs/promises'
-import { join, resolve, dirname, relative } from 'node:path'
+import { join, resolve, relative } from 'node:path'
 
 import { parseConfig } from '@/src/config/env'
 

@@ -8,7 +8,7 @@ vi.mock('@/src/config/env', () => ({
 }))
 
 import { parseConfig } from '@/src/config/env'
-import { createLogFile, appendLog, finalizeLog, pruneOldLogs, getLogPath } from './activity-log'
+import { createLogFile, appendLog, pruneOldLogs, getLogPath } from './activity-log'
 
 describe('activity-log', () => {
   let testLogDir: string
