@@ -48,6 +48,9 @@ export default async function ReposPage() {
                   <div className="flex gap-2 items-center">
                     <Link href={`/repos/${repo.id}/edit`} className="btn btn-secondary">Edit</Link>
                     <BuildButton repoId={repo.id} />
+                    {repo.lastBuildAt && (
+                      <Link href={`/repos/${repo.id}/logs`} className="btn btn-secondary">Logs</Link>
+                    )}
                     <DeleteButton id={repo.id} />
                   </div>
                 </td>

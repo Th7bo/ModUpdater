@@ -12,6 +12,7 @@ import { collectArtifacts } from '@/src/builder/artifacts'
 import { sendSuccessNotification, sendFailureNotification } from '@/src/discord/notifications'
 import { toPublicRepo } from '@/src/db/queries/repos'
 import { enqueueBuild } from './build-queue'
+import { createLogFile, finalizeLog, getRelativeLogPath } from '@/src/logging/activity-log'
 
 export type TriggerSource = 'poll' | 'webhook' | 'manual' | 'sync'
 
@@ -75,7 +76,24 @@ async function executeBuild(
 
   console.log(`[pipeline] Running build for ${repo.name} with task: ${task}`)
 
-  const buildResult = await runBuild(repoDir, task)
+  let logHandle
+  let logPath: string | null = null
+  try {
+    logHandle = await createLogFile(repo.id, 'build')
+  } catch (err) {
+    console.error(`[pipeline] Failed to create log file for ${repo.name}:`, err)
+  }
+
+  const buildResult = await runBuild(repoDir, task, { logHandle })
+
+  if (logHandle) {
+    try {
+      await finalizeLog(logHandle)
+      logPath = getRelativeLogPath(logHandle.path)
+    } catch (err) {
+      console.error(`[pipeline] Failed to finalize log for ${repo.name}:`, err)
+    }
+  }
 
   const finishedAt = new Date()
   let artifactPaths: string[] = []
@@ -116,6 +134,7 @@ async function executeBuild(
     commitsJson: JSON.stringify(commits),
     artifactPathsJson: buildResult.success ? JSON.stringify(artifactPaths) : null,
     logTail: buildResult.logTail,
+    logPath,
     startedAt,
     finishedAt,
   })

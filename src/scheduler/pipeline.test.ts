@@ -19,9 +19,16 @@ const mockEnqueueBuild = vi.fn((job) => job())
 vi.mock('@/src/config/env', () => ({
   parseConfig: vi.fn(() => ({
     REPOS_DIR: './data/repos',
+    LOG_DIR: './data/logs',
     DEBOUNCE_MS: 60000,
     BUILD_CONCURRENCY: 2,
   })),
+}))
+
+vi.mock('@/src/logging/activity-log', () => ({
+  createLogFile: vi.fn().mockResolvedValue({ path: '/mock/log/path.log', repoId: 'test', type: 'build' }),
+  finalizeLog: vi.fn().mockResolvedValue('/mock/log/path.log'),
+  getRelativeLogPath: vi.fn().mockReturnValue('test/build-mock.log'),
 }))
 
 vi.mock('@/src/db/client', () => ({
