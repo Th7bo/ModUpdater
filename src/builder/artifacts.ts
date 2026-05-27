@@ -51,6 +51,32 @@ async function collectFromSubdirs(baseDir: string): Promise<string[]> {
   return artifacts
 }
 
+function deduplicateArtifacts(paths: string[]): string[] {
+  const seen = new Map<string, string>()
+
+  for (const p of paths) {
+    const filename = basename(p)
+    const nameWithoutExt = filename.replace(/\.jar$/, '')
+    const parts = nameWithoutExt.split('-')
+
+    const versionIdx = parts.findIndex((part) => /^\d+\.\d+/.test(part))
+    if (versionIdx === -1) {
+      seen.set(filename, p)
+      continue
+    }
+
+    const baseName = parts.slice(0, versionIdx).join('-')
+    const versions = parts.slice(versionIdx).sort()
+    const key = `${baseName}-${versions.join('-')}`
+
+    if (!seen.has(key)) {
+      seen.set(key, p)
+    }
+  }
+
+  return [...seen.values()]
+}
+
 export async function collectArtifacts(repoDir: string): Promise<string[]> {
   const artifacts: string[] = []
 
@@ -62,7 +88,7 @@ export async function collectArtifacts(repoDir: string): Promise<string[]> {
   const versionsDir = join(repoDir, 'versions')
   artifacts.push(...(await collectFromSubdirs(versionsDir)))
 
-  return artifacts
+  return deduplicateArtifacts(artifacts)
 }
 
 export interface StoredArtifact {
