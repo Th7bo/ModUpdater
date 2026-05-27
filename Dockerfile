@@ -5,7 +5,7 @@ RUN npm install -g pnpm@11
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm.json .npmrc ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm rebuild
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 FROM base AS builder
