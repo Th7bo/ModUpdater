@@ -67,11 +67,11 @@ export default async function BuildsPage({
               <tbody>
                 {builds.map((build) => (
                   <tr key={build.id}>
-                    <td><StatusBadge status={build.status} /></td>
-                    <td className="cell-muted">{build.triggeredBy}</td>
-                    <td className="cell-muted whitespace-nowrap">{formatDate(build.startedAt)}</td>
-                    <td className="cell-muted">{build.finishedAt ? formatDuration(build.startedAt, build.finishedAt) : 'running'}</td>
-                    <td>
+                    <td data-label="Status"><StatusBadge status={build.status} /></td>
+                    <td className="cell-muted" data-label="Triggered By">{build.triggeredBy}</td>
+                    <td className="cell-muted whitespace-nowrap" data-label="Started">{formatDate(build.startedAt)}</td>
+                    <td className="cell-muted" data-label="Duration">{build.finishedAt ? formatDuration(build.startedAt, build.finishedAt) : 'running'}</td>
+                    <td className="td-actions">
                       {build.logPath ? (
                         <Link href={`/repos/${id}/builds/${build.id}/log`} className="btn btn-secondary btn-sm">
                           View log

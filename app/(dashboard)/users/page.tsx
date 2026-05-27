@@ -50,7 +50,7 @@ export default async function UsersPage() {
               <tbody>
                 {users.map((user) => (
                   <tr key={user.id}>
-                    <td>
+                    <td data-label="Name">
                       <div className="flex items-center gap-3">
                         {user.image ? (
                           <Image
@@ -67,9 +67,9 @@ export default async function UsersPage() {
                         <span className="cell-strong">{user.name || 'Unnamed user'}</span>
                       </div>
                     </td>
-                    <td className="cell-muted">{user.email}</td>
-                    <td><StatusBadge status={user.role} /></td>
-                    <td>
+                    <td className="cell-muted" data-label="Email">{user.email}</td>
+                    <td data-label="Role"><StatusBadge status={user.role} /></td>
+                    <td className="td-actions">
                       <RoleSelect
                         userId={user.id}
                         currentRole={user.role}

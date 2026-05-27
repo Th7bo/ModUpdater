@@ -62,25 +62,25 @@ export default async function ReposPage() {
               <tbody>
                 {repos.map((repo) => (
                   <tr key={repo.id}>
-                    <td>
+                    <td data-label="Repository">
                       <div className="cell-strong">{repo.name}</div>
                       <div className="cell-muted text-xs">{repo.branch}</div>
                     </td>
-                    <td className="cell-muted">{repo.mode}</td>
-                    <td className="cell-muted">{repo.detectionMethod}</td>
-                    <td>
+                    <td className="cell-muted" data-label="Mode">{repo.mode}</td>
+                    <td className="cell-muted" data-label="Detection">{repo.detectionMethod}</td>
+                    <td data-label="Status">
                       <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge status={repo.syncPaused ? 'paused' : repo.lastBuildStatus} />
                         {repo.syncPaused && <span className="cell-muted text-xs">sync paused</span>}
                       </div>
                     </td>
-                    <td className="cell-muted whitespace-nowrap">
+                    <td className="cell-muted whitespace-nowrap" data-label="Last Build">
                       {repo.lastBuildAt ? formatDate(repo.lastBuildAt) : 'never'}
                     </td>
-                    <td className="cell-code">
+                    <td className="cell-code" data-label="Commit">
                       {repo.lastCommitHash ? repo.lastCommitHash.slice(0, 7) : 'none'}
                     </td>
-                    <td>
+                    <td className="td-actions">
                       <div className="action-row">
                         {isAdmin && (
                           <Link href={`/repos/${repo.id}/edit`} className="btn btn-secondary btn-sm">Edit</Link>
