@@ -14,6 +14,7 @@ A self-hosted platform that tracks Minecraft Fabric mod repositories (both publi
 | Framework | Next.js (App Router) — API routes + React frontend |
 | Database | PostgreSQL + Drizzle ORM |
 | Auth | Auth.js |
+| UI styling | Tailwind CSS v4 (utility classes; `.btn` / `.status` component layers in `globals.css`) |
 | Discord | `discord.js` |
 | Git operations | `simple-git` (no raw CLI shell calls) |
 | Containerisation | Docker, deployed via Dokploy; PostgreSQL as a companion container |
@@ -143,9 +144,9 @@ On a successful build, the bot sends:
 
 ### 6.1 Technology
 
-- Simple web application, self-hosted on the same VPS.
-- No specific framework mandated; choose for ease of self-hosting (e.g. a lightweight Node/Python web app).
-- Access should be protected by at minimum HTTP Basic Auth or a simple login, since this is a personal tool.
+- Next.js App Router (server components + server actions), self-hosted on the same VPS.
+- Styled with Tailwind CSS v4; utility classes in JSX, `.btn` and `.status` component layers in `app/globals.css`.
+- Access protected by Auth.js (Google OAuth + Resend magic-link).
 
 ### 6.2 Repository Management
 
