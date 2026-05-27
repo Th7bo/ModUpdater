@@ -2,26 +2,30 @@ import { Client, GatewayIntentBits } from 'discord.js'
 
 import { parseConfig } from '@/src/config/env'
 
-let client: Client | null = null
-let loginPromise: Promise<void> | null = null
+declare global {
+  // eslint-disable-next-line no-var
+  var discordClient: Client | undefined
+  // eslint-disable-next-line no-var
+  var discordLoginPromise: Promise<void> | undefined
+}
 
 export function getDiscordClient(): Client {
-  if (!client) {
-    client = new Client({
+  if (!globalThis.discordClient) {
+    globalThis.discordClient = new Client({
       intents: [GatewayIntentBits.Guilds],
     })
 
     const config = parseConfig()
-    loginPromise = client.login(config.DISCORD_BOT_TOKEN).then(() => {
+    globalThis.discordLoginPromise = globalThis.discordClient.login(config.DISCORD_BOT_TOKEN).then(() => {
       console.log('[discord] Bot logged in')
     })
   }
 
-  return client
+  return globalThis.discordClient
 }
 
 export async function waitForReady(): Promise<void> {
-  if (loginPromise) {
-    await loginPromise
+  if (globalThis.discordLoginPromise) {
+    await globalThis.discordLoginPromise
   }
 }

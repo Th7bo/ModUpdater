@@ -18,9 +18,9 @@ export interface RunBuildOptions {
 
 const MAX_LOG_LINES = 50
 
-function getJavaHome(version: JdkVersion): string {
+function getJavaHome(version: JdkVersion): string | null {
   if (process.platform === 'win32') {
-    return `C:\\Program Files\\Java\\jdk-${version}`
+    return null
   }
   return `/usr/lib/jvm/java-${version}-openjdk`
 }
@@ -39,8 +39,10 @@ export function runBuild(
 
     const env = { ...process.env }
     const javaHome = getJavaHome(jdkVersion)
-    env.JAVA_HOME = javaHome
-    env.PATH = `${javaHome}/bin${process.platform === 'win32' ? ';' : ':'}${env.PATH}`
+    if (javaHome) {
+      env.JAVA_HOME = javaHome
+      env.PATH = `${javaHome}/bin:${env.PATH}`
+    }
 
     const proc = spawn(gradlew, [task], {
       cwd: repoDir,
