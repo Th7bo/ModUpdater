@@ -10,6 +10,8 @@ export default function SettingsPage() {
         <Row label="Build concurrency" value={String(cfg.BUILD_CONCURRENCY)} />
         <Row label="Debounce (ms)" value={String(cfg.DEBOUNCE_MS)} />
         <Row label="SSH keys directory" value={cfg.SSH_KEYS_DIR} />
+        <Row label="Repos directory" value={cfg.REPOS_DIR} />
+        <Row label="Logs directory" value={cfg.LOG_DIR} />
         <Row label="Default Discord channel" value={cfg.DEFAULT_DISCORD_CHANNEL_ID || '(not set)'} />
         <Row label="Default polling interval (ms)" value={String(cfg.DEFAULT_POLLING_INTERVAL_MS)} />
       </div>

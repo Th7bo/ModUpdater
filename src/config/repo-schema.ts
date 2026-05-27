@@ -9,6 +9,7 @@ export const CreateRepoSchema = z.object({
   pollingIntervalMs: z.number().int().positive().optional(),
   discordChannelId: z.string().min(1, 'Discord channel ID is required'),
   customBuildTask: z.string().optional(),
+  jdkVersion: z.enum(['21', '25']).optional(),
   webhookSecret: z.string().optional(),
   upstreamUrl: z.string().url().optional(),
 })

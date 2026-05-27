@@ -6,6 +6,7 @@
   }
   .btn-primary   { @apply bg-blue-600 text-white hover:bg-blue-700; }
   .btn-secondary { @apply bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200; }
+  .btn-success   { @apply bg-green-600 text-white hover:bg-green-700; }
   .btn-danger    { @apply bg-red-600 text-white hover:bg-red-700; }
 
   .status        { @apply inline-block px-2 py-0.5 rounded-full text-xs font-medium; }

@@ -31,6 +31,7 @@ const mockRepo: PublicRepo = {
   pollingIntervalMs: null,
   discordChannelId: '123456789',
   customBuildTask: null,
+  jdkVersion: '21',
   sshPublicKey: null,
   upstreamUrl: null,
   syncPaused: false,

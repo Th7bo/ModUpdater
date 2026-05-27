@@ -45,3 +45,14 @@ export async function getLatestBuildRun(
     .limit(1)
   return row ?? null
 }
+
+export async function getBuildRun(
+  db: Db,
+  buildId: string
+): Promise<BuildRun | null> {
+  const [row] = await db
+    .select()
+    .from(buildRuns)
+    .where(eq(buildRuns.id, buildId))
+  return row ?? null
+}

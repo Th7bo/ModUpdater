@@ -11,6 +11,7 @@ export const repos = pgTable('repos', {
   pollingIntervalMs: integer('polling_interval_ms'),
   discordChannelId: text('discord_channel_id').notNull(),
   customBuildTask: text('custom_build_task'),
+  jdkVersion: text('jdk_version', { enum: ['21', '25'] }).default('21'),
   sshPrivateKeyPath: text('ssh_private_key_path'),
   sshPublicKey: text('ssh_public_key'),
   webhookSecret: text('webhook_secret'),

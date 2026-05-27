@@ -6,32 +6,54 @@ type Props = {
   repoId: string
 }
 
+type Status = 'idle' | 'pending' | 'triggered' | 'error'
+
 export function BuildButton({ repoId }: Props) {
-  const [pending, setPending] = useState(false)
+  const [status, setStatus] = useState<Status>('idle')
 
   const handleClick = async () => {
-    setPending(true)
+    setStatus('pending')
     try {
       const res = await fetch(`/api/repos/${repoId}/build`, { method: 'POST' })
       if (!res.ok) {
         const data = await res.json()
+        setStatus('error')
+        setTimeout(() => setStatus('idle'), 3000)
         alert(data.error || 'Build failed to trigger')
+        return
       }
+      setStatus('triggered')
+      setTimeout(() => setStatus('idle'), 3000)
     } catch (err) {
+      setStatus('error')
+      setTimeout(() => setStatus('idle'), 3000)
       alert('Failed to trigger build')
       console.error(err)
-    } finally {
-      setPending(false)
     }
+  }
+
+  const buttonText = () => {
+    switch (status) {
+      case 'pending': return 'Starting…'
+      case 'triggered': return 'Triggered!'
+      case 'error': return 'Failed'
+      default: return 'Build'
+    }
+  }
+
+  const buttonClass = () => {
+    if (status === 'triggered') return 'btn btn-success'
+    if (status === 'error') return 'btn btn-danger'
+    return 'btn btn-secondary'
   }
 
   return (
     <button
-      className="btn btn-secondary"
+      className={buttonClass()}
       onClick={handleClick}
-      disabled={pending}
+      disabled={status === 'pending'}
     >
-      {pending ? 'Starting...' : 'Build'}
+      {buttonText()}
     </button>
   )
 }

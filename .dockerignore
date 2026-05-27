@@ -1,10 +1,8 @@
-.git
-.gitignore
 node_modules
 .next
-.env
-.env.local
-.env.*.local
-data/
+.git
 *.log
-plans/
+data/repos
+data/keys
+data/logs
+.env.local

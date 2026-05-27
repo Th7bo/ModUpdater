@@ -30,14 +30,17 @@ RUN pnpm build
 FROM node:22-alpine AS runner
 WORKDIR /app
 
-ARG JAVA_VERSION=21
-
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN apk add --no-cache openjdk${JAVA_VERSION}-jre-headless git openssh-client \
+# Enable edge community repo for JDK 25 and install multiple JDK versions
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+    && apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client \
     && addgroup --system --gid 1001 nodejs \
     && adduser --system --uid 1001 nextjs
+
+# Default JAVA_HOME (can be overridden per-build)
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static

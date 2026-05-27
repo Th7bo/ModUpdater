@@ -5,7 +5,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { createRepo, updateRepo, deleteRepo, getRepo } from '@/src/db/queries/repos'
 import { CreateRepoSchema, UpdateRepoSchema } from '@/src/config/repo-schema'
-import { storeSshKey, removeSshKey } from '@/src/git/ssh-keys'
+import { storeSshKey, removeSshKey, generateSshKeyPair } from '@/src/git/ssh-keys'
 import { parseConfig } from '@/src/config/env'
 
 export type ActionState = {
@@ -80,4 +80,33 @@ export async function deleteRepoAction(id: string): Promise<void> {
 
   await deleteRepo(db, id)
   redirect('/repos')
+}
+
+export async function generateSshKeyAction(
+  id: string
+): Promise<{ success: boolean; publicKey?: string; error?: string }> {
+  const session = await auth()
+  if (!session) return { success: false, error: 'Unauthorized' }
+
+  const repo = await getRepo(db, id)
+  if (!repo) return { success: false, error: 'Repository not found' }
+
+  if (repo.mode !== 'fork') {
+    return { success: false, error: 'SSH keys are only needed for fork repos' }
+  }
+
+  try {
+    const config = parseConfig()
+    const { publicKey, privateKeyPath } = await generateSshKeyPair(id, config.SSH_KEYS_DIR)
+
+    await updateRepo(db, id, {
+      sshPrivateKeyPath: privateKeyPath,
+      sshPublicKey: publicKey,
+    })
+
+    return { success: true, publicKey }
+  } catch (err) {
+    console.error(`[generateSshKeyAction] Failed to generate SSH key for ${id}:`, err)
+    return { success: false, error: 'Failed to generate SSH key' }
+  }
 }

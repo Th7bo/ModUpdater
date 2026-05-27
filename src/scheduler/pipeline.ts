@@ -7,7 +7,7 @@ import { getRepo, updateRepo } from '@/src/db/queries/repos'
 import { createBuildRun } from '@/src/db/queries/build-runs'
 import { ensureCloned, fetchLatest, getHeadHash, getNewCommits, type Commit } from '@/src/git/repo-sync'
 import { detectStonecutter, selectBuildTask } from '@/src/builder/stonecutter'
-import { runBuild } from '@/src/builder/runner'
+import { runBuild, type JdkVersion } from '@/src/builder/runner'
 import { collectArtifacts } from '@/src/builder/artifacts'
 import { sendSuccessNotification, sendFailureNotification } from '@/src/discord/notifications'
 import { toPublicRepo } from '@/src/db/queries/repos'
@@ -16,10 +16,20 @@ import { createLogFile, finalizeLog, getRelativeLogPath } from '@/src/logging/ac
 
 export type TriggerSource = 'poll' | 'webhook' | 'manual' | 'sync'
 
+export interface TriggerOptions {
+  source?: TriggerSource
+  force?: boolean
+}
+
 export async function triggerBuild(
   repoId: string,
-  source: TriggerSource = 'poll'
+  sourceOrOptions: TriggerSource | TriggerOptions = 'poll'
 ): Promise<void> {
+  const options = typeof sourceOrOptions === 'string'
+    ? { source: sourceOrOptions, force: false }
+    : { source: sourceOrOptions.source ?? 'poll', force: sourceOrOptions.force ?? false }
+
+  const { source, force } = options
   const config = parseConfig()
   const repo = await getRepo(db, repoId)
 
@@ -45,7 +55,7 @@ export async function triggerBuild(
 
   const headHash = await getHeadHash(repoDir, repo.branch)
 
-  if (headHash === repo.lastCommitHash) {
+  if (!force && headHash === repo.lastCommitHash) {
     console.log(`[pipeline] No new commits for ${repo.name}, skipping build`)
     return
   }
@@ -54,7 +64,7 @@ export async function triggerBuild(
     ? await getNewCommits(repoDir, repo.lastCommitHash, repo.branch)
     : await getNewCommits(repoDir, '', repo.branch)
 
-  console.log(`[pipeline] ${commits.length} new commit(s) for ${repo.name}`)
+  console.log(`[pipeline] ${commits.length} new commit(s) for ${repo.name}${force ? ' (forced)' : ''}`)
 
   await enqueueBuild(async () => {
     await executeBuild(repo.id, repoDir, commits, source)
@@ -84,7 +94,8 @@ async function executeBuild(
     console.error(`[pipeline] Failed to create log file for ${repo.name}:`, err)
   }
 
-  const buildResult = await runBuild(repoDir, task, { logHandle })
+  const jdkVersion = (repo.jdkVersion ?? '21') as JdkVersion
+  const buildResult = await runBuild(repoDir, task, { logHandle, jdkVersion })
 
   if (logHandle) {
     try {

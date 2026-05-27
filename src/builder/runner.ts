@@ -3,6 +3,8 @@ import { spawn } from 'node:child_process'
 import type { LogHandle } from '@/src/logging/activity-log'
 import { appendLog } from '@/src/logging/activity-log'
 
+export type JdkVersion = '21' | '25'
+
 export interface BuildResult {
   success: boolean
   logTail: string
@@ -11,9 +13,21 @@ export interface BuildResult {
 
 export interface RunBuildOptions {
   logHandle?: LogHandle
+  jdkVersion?: JdkVersion
 }
 
 const MAX_LOG_LINES = 50
+
+function getJavaHome(version: JdkVersion): string | null {
+  if (process.platform === 'win32') {
+    return null
+  }
+  return `/usr/lib/jvm/java-${version}-openjdk`
+}
+
+export function getAvailableJdkVersions(): JdkVersion[] {
+  return ['21', '25']
+}
 
 export function runBuild(
   repoDir: string,
@@ -23,13 +37,21 @@ export function runBuild(
   return new Promise((resolve) => {
     const startTime = Date.now()
     const outputLines: string[] = []
-    const { logHandle } = options
+    const { logHandle, jdkVersion = '21' } = options
 
     const gradlew = process.platform === 'win32' ? 'gradlew.bat' : './gradlew'
+
+    const env = { ...process.env }
+    const javaHome = getJavaHome(jdkVersion)
+    if (javaHome) {
+      env.JAVA_HOME = javaHome
+      env.PATH = `${javaHome}/bin:${env.PATH}`
+    }
 
     const proc = spawn(gradlew, [task], {
       cwd: repoDir,
       shell: process.platform === 'win32',
+      env,
     })
 
     const collectOutput = async (data: Buffer) => {
