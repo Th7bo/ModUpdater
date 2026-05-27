@@ -48,7 +48,6 @@ ENV JAVA_HOME_21=/usr/lib/jvm/java-21-openjdk \
 # Copy built app
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
 
 # Copy files needed for drizzle-kit push
 COPY --from=builder /app/package.json ./
