@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockGitInstance = {
   clone: vi.fn().mockResolvedValue(undefined),
   fetch: vi.fn().mockResolvedValue(undefined),
+  checkout: vi.fn().mockResolvedValue(undefined),
   revparse: vi.fn().mockResolvedValue('abc123def456'),
   log: vi.fn().mockResolvedValue({
     all: [
@@ -25,7 +26,7 @@ vi.mock('node:fs', () => ({
 
 import { existsSync } from 'node:fs'
 
-import { ensureCloned, getHeadHash, getNewCommits } from './repo-sync'
+import { ensureCloned, fetchLatest, getHeadHash, getNewCommits } from './repo-sync'
 
 describe('ensureCloned', () => {
   beforeEach(() => {
@@ -47,6 +48,19 @@ describe('ensureCloned', () => {
 
     expect(mockGitInstance.clone).not.toHaveBeenCalled()
     expect(mockGitInstance.fetch).toHaveBeenCalled()
+  })
+})
+
+describe('fetchLatest', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('fetches origin branch then resets working tree to origin/<branch>', async () => {
+    await fetchLatest('/repos/test', 'main', undefined)
+
+    expect(mockGitInstance.fetch).toHaveBeenCalledWith('origin', 'main')
+    expect(mockGitInstance.checkout).toHaveBeenCalledWith(['-B', 'main', 'origin/main'])
   })
 })
 

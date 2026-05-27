@@ -62,6 +62,9 @@ export async function fetchLatest(
 ): Promise<void> {
   const git = createGitInstance(dir, sshKeyPath)
   await git.fetch('origin', branch)
+  // Reset working tree to the fetched remote state. -B creates or resets the
+  // local branch so the working tree always reflects what was just fetched.
+  await git.checkout(['-B', branch, `origin/${branch}`])
 }
 
 export async function getHeadHash(dir: string, branch: string): Promise<string> {
