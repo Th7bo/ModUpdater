@@ -16,10 +16,39 @@ services:
       timeout: 5s
       retries: 5
 
-# Future app service volumes (uncomment when app service is added):
-# - ./data/repos:/app/data/repos
-# - ./data/keys:/app/data/keys
-# - ./data/logs:/app/data/logs
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_repos:/app/data/repos
+      - app_keys:/app/data/keys
+      - app_logs:/app/data/logs
+    environment:
+      - DATABASE_URL=postgresql://modupdater:modupdater@db:5432/modupdater
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_URL=http://localhost:3000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - AUTH_EMAIL_FROM=${AUTH_EMAIL_FROM}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+      - REPOS_DIR=/app/data/repos
+      - SSH_KEYS_DIR=/app/data/keys
+      - LOG_DIR=/app/data/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
 
 volumes:
   postgres_data:
+  app_node_modules:
+  app_repos:
+  app_keys:
+  app_logs:
