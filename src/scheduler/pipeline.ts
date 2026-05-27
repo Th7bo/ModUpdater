@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 
 import { parseConfig } from '@/src/config/env'
 import { db } from '@/src/db/client'
@@ -8,11 +9,13 @@ import { createBuildRun } from '@/src/db/queries/build-runs'
 import { ensureCloned, fetchLatest, getHeadHash, getNewCommits, type Commit } from '@/src/git/repo-sync'
 import { detectStonecutter, selectBuildTask } from '@/src/builder/stonecutter'
 import { runBuild, type JdkVersion } from '@/src/builder/runner'
-import { collectArtifacts } from '@/src/builder/artifacts'
+import { collectArtifacts, storeArtifacts, cleanupOldArtifacts } from '@/src/builder/artifacts'
+import { listBuildRuns } from '@/src/db/queries/build-runs'
 import { sendSuccessNotification, sendFailureNotification } from '@/src/discord/notifications'
 import { toPublicRepo } from '@/src/db/queries/repos'
 import { enqueueBuild } from './build-queue'
 import { createLogFile, finalizeLog, getRelativeLogPath } from '@/src/logging/activity-log'
+import { setActiveBuild, clearActiveBuild } from './build-status'
 
 export type TriggerSource = 'poll' | 'webhook' | 'manual' | 'sync'
 
@@ -77,9 +80,11 @@ async function executeBuild(
   commits: Commit[],
   source: TriggerSource
 ): Promise<void> {
+  const config = parseConfig()
   const repo = await getRepo(db, repoId)
   if (!repo) return
 
+  const buildId = randomUUID()
   const startedAt = new Date()
   const hasStonecutter = await detectStonecutter(repoDir)
   const task = selectBuildTask(hasStonecutter, repo.customBuildTask)
@@ -90,12 +95,21 @@ async function executeBuild(
   let logPath: string | null = null
   try {
     logHandle = await createLogFile(repo.id, 'build')
+    setActiveBuild(repo.id, {
+      buildId,
+      repoId: repo.id,
+      repoName: repo.name,
+      logPath: logHandle.path,
+      startedAt,
+    })
   } catch (err) {
     console.error(`[pipeline] Failed to create log file for ${repo.name}:`, err)
   }
 
   const jdkVersion = (repo.jdkVersion ?? '21') as JdkVersion
   const buildResult = await runBuild(repoDir, task, { logHandle, jdkVersion })
+
+  clearActiveBuild(repo.id)
 
   if (logHandle) {
     try {
@@ -107,11 +121,21 @@ async function executeBuild(
   }
 
   const finishedAt = new Date()
-  let artifactPaths: string[] = []
+  let storedArtifacts: Awaited<ReturnType<typeof storeArtifacts>> = []
 
   if (buildResult.success) {
-    artifactPaths = await collectArtifacts(repoDir)
+    const artifactPaths = await collectArtifacts(repoDir)
     console.log(`[pipeline] Build succeeded for ${repo.name}, ${artifactPaths.length} artifact(s)`)
+
+    if (artifactPaths.length > 0) {
+      try {
+        await mkdir(config.ARTIFACTS_DIR, { recursive: true })
+        storedArtifacts = await storeArtifacts(buildId, artifactPaths, config.ARTIFACTS_DIR)
+        console.log(`[pipeline] Stored ${storedArtifacts.length} artifact(s) for download`)
+      } catch (err) {
+        console.error(`[pipeline] Failed to store artifacts for ${repo.name}:`, err)
+      }
+    }
   } else {
     console.log(`[pipeline] Build failed for ${repo.name}`)
   }
@@ -120,12 +144,13 @@ async function executeBuild(
 
   try {
     if (buildResult.success) {
-      await sendSuccessNotification(
-        repo.discordChannelId,
-        toPublicRepo(repo),
+      await sendSuccessNotification({
+        channelId: repo.discordChannelId,
+        repo: toPublicRepo(repo),
         commits,
-        artifactPaths
-      )
+        artifacts: storedArtifacts,
+        baseUrl: config.BASE_URL,
+      })
     } else {
       await sendFailureNotification(
         repo.discordChannelId,
@@ -139,11 +164,12 @@ async function executeBuild(
   }
 
   await createBuildRun(db, {
+    id: buildId,
     repoId: repo.id,
     status: buildResult.success ? 'success' : 'failed',
     triggeredBy: source,
     commitsJson: JSON.stringify(commits),
-    artifactPathsJson: buildResult.success ? JSON.stringify(artifactPaths) : null,
+    artifactPathsJson: buildResult.success ? JSON.stringify(storedArtifacts) : null,
     logTail: buildResult.logTail,
     logPath,
     startedAt,
@@ -155,4 +181,23 @@ async function executeBuild(
     lastBuildStatus: buildResult.success ? 'success' : 'failed',
     lastBuildAt: finishedAt,
   })
+
+  // Cleanup old artifacts, keeping only the last 3 successful builds for this repo
+  try {
+    const recentBuilds = await listBuildRuns(db, repo.id, 20)
+    const successfulBuildsWithArtifacts = recentBuilds
+      .filter((b) => b.status === 'success' && b.artifactPathsJson)
+
+    // Keep first 3, delete the rest
+    const buildsToDelete = successfulBuildsWithArtifacts.slice(3)
+    if (buildsToDelete.length > 0) {
+      const buildIdsToDelete = buildsToDelete.map((b) => b.id)
+      const removed = await cleanupOldArtifacts(buildIdsToDelete, config.ARTIFACTS_DIR)
+      if (removed > 0) {
+        console.log(`[pipeline] Cleaned up ${removed} old artifact folder(s) for ${repo.name}`)
+      }
+    }
+  } catch (err) {
+    console.error(`[pipeline] Failed to cleanup old artifacts for ${repo.name}:`, err)
+  }
 }

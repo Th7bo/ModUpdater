@@ -1,8 +1,15 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { auth } from '@/src/auth'
 import { createRepoAction } from '@/app/(dashboard)/actions'
 import { RepoForm } from '@/app/(dashboard)/_components/repo-form'
 
-export default function NewRepoPage() {
+export default async function NewRepoPage() {
+  const session = await auth()
+  if (!session || session.user.role !== 'admin') {
+    redirect('/repos')
+  }
+
   return (
     <>
       <Link href="/repos" className="text-sm text-blue-600 hover:underline inline-block mb-4">

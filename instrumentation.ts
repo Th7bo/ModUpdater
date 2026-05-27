@@ -1,10 +1,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { migrate } = await import('drizzle-orm/node-postgres/migrator')
-    const { db } = await import('@/src/db/client')
-    await migrate(db, { migrationsFolder: './src/db/migrations' })
-
-    const { startAllPollers } = await import('@/src/scheduler')
-    await startAllPollers(db)
+    try {
+      const { db } = await import('@/src/db/client')
+      const { startAllPollers } = await import('@/src/scheduler')
+      await startAllPollers(db)
+    } catch (err) {
+      console.error('[instrumentation] Failed to start pollers:', err)
+    }
   }
 }

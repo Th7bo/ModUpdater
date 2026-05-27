@@ -7,11 +7,13 @@ import { triggerBuild } from '@/src/scheduler'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
+// POST: Any authenticated user (user or admin) can trigger builds
 export async function POST(_req: Request, { params }: RouteContext) {
   const session = await auth()
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // Both 'user' and 'admin' roles can trigger builds
 
   const { id } = await params
   const repo = await getRepo(db, id)

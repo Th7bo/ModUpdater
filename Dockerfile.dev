@@ -2,8 +2,8 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm@11
+# Install pnpm globally (simpler than corepack)
+RUN npm install -g pnpm@11.3.0
 
 # Enable edge community repo for JDK 25 and install JDKs
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
@@ -14,5 +14,5 @@ ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
 EXPOSE 3000
 
-# Install dependencies and start dev server
-CMD ["sh", "-c", "pnpm install && pnpm dev"]
+# Install, migrate, build, copy static assets, and run standalone server
+CMD ["sh", "-c", "pnpm install && pnpm drizzle-kit push && pnpm build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/ 2>/dev/null || true && node .next/standalone/server.js"]

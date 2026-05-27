@@ -17,11 +17,11 @@ COPY . .
 # These are never used at runtime — real values come from the container env.
 ENV DATABASE_URL=postgres://build:build@localhost:5432/build \
     AUTH_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-    GOOGLE_CLIENT_ID=build \
-    GOOGLE_CLIENT_SECRET=build \
-    RESEND_API_KEY=re_build \
-    AUTH_EMAIL_FROM=build@example.com \
+    DISCORD_CLIENT_ID=build \
+    DISCORD_CLIENT_SECRET=build \
     DISCORD_BOT_TOKEN=build \
+    ARTIFACTS_DIR=/app/data/artifacts \
+    BASE_URL=http://localhost:3000 \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN pnpm build
@@ -33,23 +33,32 @@ WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 
+# Install pnpm for running drizzle-kit push
+RUN npm install -g pnpm@11
+
 # Enable edge community repo for JDK 25 and install multiple JDK versions
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
-    && apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client \
-    && addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && apk add --no-cache openjdk21-jdk openjdk25-jdk git openssh-client
 
-# Default JAVA_HOME (can be overridden per-build)
-ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk
+# JDK paths for per-repo selection
+ENV JAVA_HOME_21=/usr/lib/jvm/java-21-openjdk \
+    JAVA_HOME_25=/usr/lib/jvm/java-25-openjdk \
+    JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/src/db/migrations ./src/db/migrations
+# Copy built app
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-USER nextjs
+# Copy files needed for drizzle-kit push
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/drizzle.config.ts ./
+COPY --from=builder /app/src/db ./src/db
+COPY --from=builder /app/node_modules ./node_modules
+
 EXPOSE 3000
 ENV PORT=3000 \
     HOSTNAME=0.0.0.0
 
-CMD ["node", "server.js"]
+# Run schema push then start server
+CMD ["sh", "-c", "pnpm drizzle-kit push && node server.js"]

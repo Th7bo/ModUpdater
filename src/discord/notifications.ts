@@ -1,12 +1,9 @@
-import { AttachmentBuilder, EmbedBuilder, TextChannel } from 'discord.js'
-import { stat } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { EmbedBuilder, TextChannel } from 'discord.js'
 
 import { getDiscordClient, waitForReady } from './client'
 import type { PublicRepo } from '@/src/db/queries/repos'
 import type { Commit } from '@/src/git/repo-sync'
-
-const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024
+import type { StoredArtifact } from '@/src/builder/artifacts'
 
 function formatCommitList(commits: Commit[]): string {
   return commits
@@ -14,12 +11,25 @@ function formatCommitList(commits: Commit[]): string {
     .join('\n')
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+export interface SuccessNotificationOptions {
+  channelId: string
+  repo: PublicRepo
+  commits: Commit[]
+  artifacts: StoredArtifact[]
+  baseUrl: string
+}
+
 export async function sendSuccessNotification(
-  channelId: string,
-  repo: PublicRepo,
-  commits: Commit[],
-  artifactPaths: string[]
+  options: SuccessNotificationOptions
 ): Promise<void> {
+  const { channelId, repo, commits, artifacts, baseUrl } = options
+
   const client = getDiscordClient()
   await waitForReady()
 
@@ -38,26 +48,16 @@ export async function sendSuccessNotification(
     embed.addFields({ name: 'Commits', value: commitText })
   }
 
-  const attachments: AttachmentBuilder[] = []
-  const oversizedFiles: string[] = []
-
-  for (const path of artifactPaths) {
-    const fileStat = await stat(path)
-    if (fileStat.size <= MAX_ATTACHMENT_SIZE) {
-      attachments.push(new AttachmentBuilder(path))
-    } else {
-      oversizedFiles.push(basename(path))
-    }
-  }
-
-  if (oversizedFiles.length > 0) {
+  if (artifacts.length > 0) {
+    const artifactsUrl = `${baseUrl}/repos/${repo.id}/artifacts`
+    const totalSize = artifacts.reduce((sum, a) => sum + a.size, 0)
     embed.addFields({
-      name: 'Large files (not attached)',
-      value: oversizedFiles.join(', '),
+      name: 'Downloads',
+      value: `[View ${artifacts.length} artifact${artifacts.length > 1 ? 's' : ''} (${formatFileSize(totalSize)})](${artifactsUrl})`,
     })
   }
 
-  await channel.send({ embeds: [embed], files: attachments })
+  await channel.send({ embeds: [embed] })
 }
 
 export async function sendFailureNotification(

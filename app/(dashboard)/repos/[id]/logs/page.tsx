@@ -55,11 +55,11 @@ export default async function LogsPage({
             {' | '}
             Triggered by: {latestRun.triggeredBy}
             {' | '}
-            Started: {latestRun.startedAt.toLocaleString()}
+            Started: {latestRun.startedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
             {latestRun.finishedAt && (
               <>
                 {' | '}
-                Finished: {latestRun.finishedAt.toLocaleString()}
+                Finished: {latestRun.finishedAt.toLocaleString('en-BE', { timeZone: 'Europe/Brussels' })}
               </>
             )}
           </p>

@@ -21,7 +21,7 @@ import { auth } from '@/src/auth'
 import { getRepo, createRepo, updateRepo, deleteRepo, listRepos } from '@/src/db/queries/repos'
 
 const mockSession: Session = {
-  user: { id: 'user-1', email: 'test@example.com', name: 'Test User' },
+  user: { id: 'user-1', email: 'test@example.com', name: 'Test User', role: 'admin' },
   expires: new Date(Date.now() + 3_600_000).toISOString(),
 }
 

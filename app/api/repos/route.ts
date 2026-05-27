@@ -5,6 +5,7 @@ import { db } from '@/src/db/client'
 import { listRepos, createRepo, toPublicRepo } from '@/src/db/queries/repos'
 import { CreateRepoSchema } from '@/src/config/repo-schema'
 
+// GET: Any authenticated user can list repos
 export async function GET() {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -13,9 +14,13 @@ export async function GET() {
   return NextResponse.json(repos.map(toPublicRepo))
 }
 
+// POST: Admin only - create new repo
 export async function POST(req: Request) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (session.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+  }
 
   const body: unknown = await req.json()
   const parsed = CreateRepoSchema.safeParse(body)

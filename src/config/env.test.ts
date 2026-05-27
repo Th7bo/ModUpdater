@@ -5,10 +5,8 @@ import { parseConfig } from '@/src/config/env'
 const validEnv: Record<string, string> = {
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/test',
   AUTH_SECRET: 'super-secret-value-for-testing-32-chars!!',
-  GOOGLE_CLIENT_ID: 'test-google-client-id',
-  GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
-  RESEND_API_KEY: 're_test_key_value',
-  AUTH_EMAIL_FROM: 'noreply@example.com',
+  DISCORD_CLIENT_ID: 'test-discord-client-id',
+  DISCORD_CLIENT_SECRET: 'test-discord-client-secret',
   DISCORD_BOT_TOKEN: 'test-discord-bot-token',
 }
 
@@ -31,13 +29,13 @@ describe('parseConfig', () => {
     expect(() => parseConfig(env)).toThrow(ZodError)
   })
 
-  it('throws ZodError when GOOGLE_CLIENT_ID is missing', () => {
-    const { GOOGLE_CLIENT_ID: _, ...env } = validEnv
+  it('throws ZodError when DISCORD_CLIENT_ID is missing', () => {
+    const { DISCORD_CLIENT_ID: _, ...env } = validEnv
     expect(() => parseConfig(env)).toThrow(ZodError)
   })
 
-  it('throws ZodError when RESEND_API_KEY is missing', () => {
-    const { RESEND_API_KEY: _, ...env } = validEnv
+  it('throws ZodError when DISCORD_CLIENT_SECRET is missing', () => {
+    const { DISCORD_CLIENT_SECRET: _, ...env } = validEnv
     expect(() => parseConfig(env)).toThrow(ZodError)
   })
 

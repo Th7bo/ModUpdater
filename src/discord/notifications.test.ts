@@ -11,15 +11,10 @@ vi.mock('./client', () => ({
   waitForReady: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('node:fs/promises', () => ({
-  stat: vi.fn(),
-}))
-
-import { stat } from 'node:fs/promises'
-
 import { sendSuccessNotification, sendFailureNotification, sendConflictNotification } from './notifications'
 import type { PublicRepo } from '@/src/db/queries/repos'
 import type { Commit } from '@/src/git/repo-sync'
+import type { StoredArtifact } from '@/src/builder/artifacts'
 
 const mockRepo: PublicRepo = {
   id: 'test-repo-id',
@@ -53,9 +48,17 @@ describe('sendSuccessNotification', () => {
   })
 
   it('sends embed with repo name, gitUrl, branch, and all commits', async () => {
-    vi.mocked(stat).mockResolvedValue({ size: 1000 } as ReturnType<typeof stat> extends Promise<infer T> ? T : never)
+    const mockArtifacts: StoredArtifact[] = [
+      { filename: 'mod.jar', path: '/path/to/mod.jar', size: 1000 },
+    ]
 
-    await sendSuccessNotification('channel-123', mockRepo, mockCommits, ['/path/to/mod.jar'])
+    await sendSuccessNotification({
+      channelId: 'channel-123',
+      repo: mockRepo,
+      commits: mockCommits,
+      artifacts: mockArtifacts,
+      baseUrl: 'http://localhost:3000',
+    })
 
     expect(mockChannelsFetch).toHaveBeenCalledWith('channel-123')
     expect(mockSend).toHaveBeenCalledTimes(1)
@@ -70,23 +73,26 @@ describe('sendSuccessNotification', () => {
     expect(embed.data.fields.some((f: { name: string; value: string }) => f.value.includes('abc1234'))).toBe(true)
   })
 
-  it('attaches artifacts within 25 MB size limit', async () => {
-    vi.mocked(stat).mockResolvedValue({ size: 1000 } as ReturnType<typeof stat> extends Promise<infer T> ? T : never)
+  it('includes download links for artifacts', async () => {
+    const mockArtifacts: StoredArtifact[] = [
+      { filename: 'TestMod-1.0.jar', path: '/path/to/TestMod-1.0.jar', size: 5 * 1024 * 1024 },
+    ]
 
-    await sendSuccessNotification('channel-123', mockRepo, [], ['/path/to/small.jar'])
+    await sendSuccessNotification({
+      channelId: 'channel-123',
+      repo: mockRepo,
+      commits: [],
+      artifacts: mockArtifacts,
+      baseUrl: 'http://localhost:3000',
+    })
 
     const callArg = mockSend.mock.calls[0][0]
-    expect(callArg.files).toHaveLength(1)
-  })
-
-  it('excludes artifacts over 25 MB and mentions them in embed', async () => {
-    vi.mocked(stat).mockResolvedValue({ size: 30 * 1024 * 1024 } as ReturnType<typeof stat> extends Promise<infer T> ? T : never)
-
-    await sendSuccessNotification('channel-123', mockRepo, [], ['/path/to/huge.jar'])
-
-    const callArg = mockSend.mock.calls[0][0]
-    expect(callArg.files).toHaveLength(0)
-    expect(callArg.embeds[0].data.fields.some((f: { name: string; value: string }) => f.name === 'Large files (not attached)')).toBe(true)
+    const embed = callArg.embeds[0]
+    const downloadsField = embed.data.fields.find((f: { name: string }) => f.name === 'Downloads')
+    expect(downloadsField).toBeDefined()
+    expect(downloadsField.value).toContain('View 1 artifact')
+    expect(downloadsField.value).toContain('http://localhost:3000/repos/test-repo-id/artifacts')
+    expect(downloadsField.value).toContain('5.0 MB')
   })
 })
 

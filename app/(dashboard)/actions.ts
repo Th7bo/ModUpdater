@@ -26,12 +26,14 @@ function parseFormData(formData: FormData): Record<string, unknown> {
   return result
 }
 
+// Admin only - create new repo
 export async function createRepoAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const session = await auth()
   if (!session) return { message: 'Unauthorized' }
+  if (session.user.role !== 'admin') return { message: 'Forbidden: Admin access required' }
 
   const parsed = CreateRepoSchema.safeParse(parseFormData(formData))
   if (!parsed.success) {
@@ -42,6 +44,7 @@ export async function createRepoAction(
   redirect('/repos')
 }
 
+// Admin only - update repo
 export async function updateRepoAction(
   id: string,
   _prevState: ActionState,
@@ -49,6 +52,7 @@ export async function updateRepoAction(
 ): Promise<ActionState> {
   const session = await auth()
   if (!session) return { message: 'Unauthorized' }
+  if (session.user.role !== 'admin') return { message: 'Forbidden: Admin access required' }
 
   const parsed = UpdateRepoSchema.safeParse(parseFormData(formData))
   if (!parsed.success) {
@@ -69,9 +73,11 @@ export async function updateRepoAction(
   redirect('/repos')
 }
 
+// Admin only - delete repo
 export async function deleteRepoAction(id: string): Promise<void> {
   const session = await auth()
   if (!session) throw new Error('Unauthorized')
+  if (session.user.role !== 'admin') throw new Error('Forbidden: Admin access required')
 
   const repo = await getRepo(db, id)
   if (repo?.sshPrivateKeyPath) {
@@ -82,11 +88,13 @@ export async function deleteRepoAction(id: string): Promise<void> {
   redirect('/repos')
 }
 
+// Admin only - generate SSH key
 export async function generateSshKeyAction(
   id: string
 ): Promise<{ success: boolean; publicKey?: string; error?: string }> {
   const session = await auth()
   if (!session) return { success: false, error: 'Unauthorized' }
+  if (session.user.role !== 'admin') return { success: false, error: 'Forbidden: Admin access required' }
 
   const repo = await getRepo(db, id)
   if (!repo) return { success: false, error: 'Repository not found' }
