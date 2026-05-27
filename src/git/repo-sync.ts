@@ -75,8 +75,6 @@ export async function getNewCommits(
     return []
   }
 
-  const range = since ? `${since}..origin/${branch}` : `origin/${branch}`
-
   const log = await git.log({
     from: since || undefined,
     to: `origin/${branch}`,

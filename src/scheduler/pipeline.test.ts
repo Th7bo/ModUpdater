@@ -1,0 +1,195 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+const mockGetRepo = vi.fn()
+const mockUpdateRepo = vi.fn()
+const mockCreateBuildRun = vi.fn()
+const mockEnsureCloned = vi.fn()
+const mockFetchLatest = vi.fn()
+const mockGetHeadHash = vi.fn()
+const mockGetNewCommits = vi.fn()
+const mockDetectStonecutter = vi.fn()
+const mockSelectBuildTask = vi.fn()
+const mockRunBuild = vi.fn()
+const mockCollectArtifacts = vi.fn()
+const mockSendSuccessNotification = vi.fn()
+const mockSendFailureNotification = vi.fn()
+const mockToPublicRepo = vi.fn((repo) => repo)
+const mockEnqueueBuild = vi.fn((job) => job())
+
+vi.mock('@/src/config/env', () => ({
+  parseConfig: vi.fn(() => ({
+    REPOS_DIR: './data/repos',
+    DEBOUNCE_MS: 60000,
+    BUILD_CONCURRENCY: 2,
+  })),
+}))
+
+vi.mock('@/src/db/client', () => ({
+  db: {},
+}))
+
+vi.mock('@/src/db/queries/repos', () => ({
+  getRepo: (...args: unknown[]) => mockGetRepo(...args),
+  updateRepo: (...args: unknown[]) => mockUpdateRepo(...args),
+  toPublicRepo: (repo: unknown) => mockToPublicRepo(repo),
+}))
+
+vi.mock('@/src/db/queries/build-runs', () => ({
+  createBuildRun: (...args: unknown[]) => mockCreateBuildRun(...args),
+}))
+
+vi.mock('@/src/git/repo-sync', () => ({
+  ensureCloned: (...args: unknown[]) => mockEnsureCloned(...args),
+  fetchLatest: (...args: unknown[]) => mockFetchLatest(...args),
+  getHeadHash: (...args: unknown[]) => mockGetHeadHash(...args),
+  getNewCommits: (...args: unknown[]) => mockGetNewCommits(...args),
+}))
+
+vi.mock('@/src/builder/stonecutter', () => ({
+  detectStonecutter: (...args: unknown[]) => mockDetectStonecutter(...args),
+  selectBuildTask: (...args: unknown[]) => mockSelectBuildTask(...args),
+}))
+
+vi.mock('@/src/builder/runner', () => ({
+  runBuild: (...args: unknown[]) => mockRunBuild(...args),
+}))
+
+vi.mock('@/src/builder/artifacts', () => ({
+  collectArtifacts: (...args: unknown[]) => mockCollectArtifacts(...args),
+}))
+
+vi.mock('@/src/discord/notifications', () => ({
+  sendSuccessNotification: (...args: unknown[]) => mockSendSuccessNotification(...args),
+  sendFailureNotification: (...args: unknown[]) => mockSendFailureNotification(...args),
+}))
+
+vi.mock('./build-queue', () => ({
+  enqueueBuild: (job: () => Promise<void>) => mockEnqueueBuild(job),
+}))
+
+vi.mock('node:fs/promises', () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+}))
+
+import { triggerBuild } from './pipeline'
+
+const baseRepo = {
+  id: 'test-repo-id',
+  name: 'TestMod',
+  gitUrl: 'https://github.com/user/testmod',
+  mode: 'upstream',
+  branch: 'main',
+  detectionMethod: 'polling',
+  discordChannelId: '123456789',
+  customBuildTask: null,
+  sshPrivateKeyPath: null,
+  syncPaused: false,
+  lastCommitHash: 'old-hash',
+  lastBuildStatus: null,
+  lastBuildAt: null,
+}
+
+const mockCommits = [
+  { hash: 'new-hash', author: 'Dev', message: 'Add feature', date: new Date() },
+]
+
+describe('triggerBuild', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetRepo.mockResolvedValue({ ...baseRepo })
+    mockGetHeadHash.mockResolvedValue('new-hash')
+    mockGetNewCommits.mockResolvedValue(mockCommits)
+    mockDetectStonecutter.mockResolvedValue(false)
+    mockSelectBuildTask.mockReturnValue('build')
+    mockRunBuild.mockResolvedValue({ success: true, logTail: 'BUILD SUCCESSFUL', durationMs: 5000 })
+    mockCollectArtifacts.mockResolvedValue(['/path/to/mod.jar'])
+    mockSendSuccessNotification.mockResolvedValue(undefined)
+    mockSendFailureNotification.mockResolvedValue(undefined)
+    mockCreateBuildRun.mockResolvedValue({})
+    mockUpdateRepo.mockResolvedValue({})
+  })
+
+  it('happy path (upstream): new commit → build → success notification → persist', async () => {
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockEnsureCloned).toHaveBeenCalled()
+    expect(mockFetchLatest).toHaveBeenCalled()
+    expect(mockRunBuild).toHaveBeenCalled()
+    expect(mockSendSuccessNotification).toHaveBeenCalledWith(
+      '123456789',
+      expect.objectContaining({ name: 'TestMod' }),
+      mockCommits,
+      ['/path/to/mod.jar']
+    )
+    expect(mockCreateBuildRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'success' })
+    )
+    expect(mockUpdateRepo).toHaveBeenCalledWith(
+      expect.anything(),
+      'test-repo-id',
+      expect.objectContaining({ lastBuildStatus: 'success', lastCommitHash: 'new-hash' })
+    )
+  })
+
+  it('happy path (fork, SSH): uses sshPrivateKeyPath for git operations', async () => {
+    mockGetRepo.mockResolvedValue({
+      ...baseRepo,
+      mode: 'fork',
+      sshPrivateKeyPath: '/data/keys/repo-test.pem',
+    })
+
+    await triggerBuild('test-repo-id', 'webhook')
+
+    expect(mockEnsureCloned).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      '/data/keys/repo-test.pem'
+    )
+    expect(mockFetchLatest).toHaveBeenCalledWith(
+      expect.any(String),
+      'main',
+      '/data/keys/repo-test.pem'
+    )
+  })
+
+  it('idempotency: same hash as lastCommitHash → no build', async () => {
+    mockGetHeadHash.mockResolvedValue('old-hash')
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockRunBuild).not.toHaveBeenCalled()
+    expect(mockSendSuccessNotification).not.toHaveBeenCalled()
+  })
+
+  it('build failure: calls sendFailureNotification and persists failed status', async () => {
+    mockRunBuild.mockResolvedValue({ success: false, logTail: 'BUILD FAILED', durationMs: 3000 })
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockSendFailureNotification).toHaveBeenCalledWith(
+      '123456789',
+      expect.objectContaining({ name: 'TestMod' }),
+      mockCommits,
+      'BUILD FAILED'
+    )
+    expect(mockCreateBuildRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'failed' })
+    )
+    expect(mockUpdateRepo).toHaveBeenCalledWith(
+      expect.anything(),
+      'test-repo-id',
+      expect.objectContaining({ lastBuildStatus: 'failed' })
+    )
+  })
+
+  it('Discord notification throws: createBuildRun is still called', async () => {
+    mockSendSuccessNotification.mockRejectedValue(new Error('Discord error'))
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockCreateBuildRun).toHaveBeenCalled()
+    expect(mockUpdateRepo).toHaveBeenCalled()
+  })
+})

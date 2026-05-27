@@ -4,6 +4,7 @@ import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { verifySignature } from '@/src/git/webhook-validation'
 import { createRateLimiter } from '@/src/scheduler/rate-limiter'
+import { debounce, triggerBuild } from '@/src/scheduler'
 
 type RouteContext = { params: Promise<{ repoId: string }> }
 
@@ -47,8 +48,8 @@ export async function POST(req: Request, { params }: RouteContext) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
-  // TODO: Replace with real triggerBuild call in Task 9
   console.log(`[webhook] Build triggered for repo ${repo.name} (${repoId})`)
+  debounce(`repo:${repoId}`, () => triggerBuild(repoId, 'webhook'))
 
   return NextResponse.json({ message: 'Build queued' }, { status: 202 })
 }

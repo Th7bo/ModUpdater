@@ -3,5 +3,8 @@ export async function register() {
     const { migrate } = await import('drizzle-orm/node-postgres/migrator')
     const { db } = await import('@/src/db/client')
     await migrate(db, { migrationsFolder: './src/db/migrations' })
+
+    const { startAllPollers } = await import('@/src/scheduler')
+    await startAllPollers(db)
   }
 }

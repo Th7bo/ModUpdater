@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db } from '@/src/db/client'
 import { listRepos } from '@/src/db/queries/repos'
 import { DeleteButton } from '@/app/(dashboard)/_components/delete-button'
+import { BuildButton } from '@/app/(dashboard)/_components/build-button'
 import type { Repo } from '@/src/db/queries/repos'
 
 export default async function ReposPage() {
@@ -46,7 +47,7 @@ export default async function ReposPage() {
                 <td className="px-3 py-2.5 border-b border-slate-100 align-middle">
                   <div className="flex gap-2 items-center">
                     <Link href={`/repos/${repo.id}/edit`} className="btn btn-secondary">Edit</Link>
-                    <button className="btn btn-secondary" disabled title="Not yet implemented">Build</button>
+                    <BuildButton repoId={repo.id} />
                     <DeleteButton id={repo.id} />
                   </div>
                 </td>
