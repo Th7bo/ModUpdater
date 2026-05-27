@@ -17,7 +17,7 @@ vi.mock('node:fs/promises', () => ({
 
 import { stat } from 'node:fs/promises'
 
-import { sendSuccessNotification, sendFailureNotification } from './notifications'
+import { sendSuccessNotification, sendFailureNotification, sendConflictNotification } from './notifications'
 import type { PublicRepo } from '@/src/db/queries/repos'
 import type { Commit } from '@/src/git/repo-sync'
 
@@ -106,5 +106,56 @@ describe('sendFailureNotification', () => {
     expect(embed.data.title).toContain('failed')
     expect(embed.data.fields.some((f: { name: string; value: string }) => f.value.includes('BUILD FAILED'))).toBe(true)
     expect(embed.data.fields.some((f: { name: string; value: string }) => f.value.includes('```'))).toBe(true)
+  })
+})
+
+describe('sendConflictNotification', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sends embed with fork, upstream, commit range, and conflicting files', async () => {
+    const forkRepo: PublicRepo = {
+      ...mockRepo,
+      mode: 'fork',
+      upstreamUrl: 'https://github.com/original/mod',
+    }
+
+    await sendConflictNotification(
+      'channel-123',
+      forkRepo,
+      'https://github.com/original/mod',
+      'abc1234..def5678',
+      ['src/main.ts', 'package.json']
+    )
+
+    const callArg = mockSend.mock.calls[0][0]
+    expect(callArg.embeds).toHaveLength(1)
+
+    const embed = callArg.embeds[0]
+    expect(embed.data.title).toContain('Merge conflict')
+    expect(embed.data.title).toContain('TestMod')
+    expect(embed.data.fields.some((f: { name: string; value: string }) => f.name === 'Fork')).toBe(true)
+    expect(embed.data.fields.some((f: { name: string; value: string }) => f.name === 'Upstream')).toBe(true)
+    expect(embed.data.fields.some((f: { name: string; value: string }) => f.name === 'Commit range')).toBe(true)
+    expect(embed.data.fields.some((f: { name: string; value: string }) => f.name === 'Conflicting files')).toBe(true)
+    expect(embed.data.fields.some((f: { name: string; value: string }) => f.name === 'Action required')).toBe(true)
+  })
+
+  it('truncates large file lists', async () => {
+    const manyFiles = Array.from({ length: 20 }, (_, i) => `file${i}.ts`)
+
+    await sendConflictNotification(
+      'channel-123',
+      mockRepo,
+      'https://github.com/original/mod',
+      'abc..def',
+      manyFiles
+    )
+
+    const callArg = mockSend.mock.calls[0][0]
+    const embed = callArg.embeds[0]
+    const filesField = embed.data.fields.find((f: { name: string }) => f.name === 'Conflicting files')
+    expect(filesField.value).toContain('... and 5 more')
   })
 })
