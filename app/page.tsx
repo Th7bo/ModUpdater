@@ -1,3 +1,5 @@
-export default function Home() {
-  return <main />
+import { redirect } from 'next/navigation'
+
+export default function RootPage() {
+  redirect('/repos')
 }

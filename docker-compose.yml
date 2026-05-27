@@ -16,5 +16,21 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # Override DATABASE_URL to use the docker network service name
+      DATABASE_URL: postgres://modupdater:modupdater@db:5432/modupdater
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data/keys:/app/data/keys
+      - ./data/logs:/app/data/logs
+    restart: unless-stopped
+
 volumes:
   postgres_data:
