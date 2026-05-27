@@ -54,15 +54,15 @@ A fork of an upstream mod repository, hosted on GitHub, with personal modificati
 
 **Two sub-scenarios:**
 
-#### 4.2.1 Upstream Has New Commits (Rebase)
+#### 4.2.1 Upstream Has New Commits (Merge)
 
 - The platform periodically checks the upstream remote for new commits not present in the fork.
-- If found, it performs a `git rebase` of the fork's branch onto the upstream changes.
-- **Conflict handling:** If the rebase fails due to a merge conflict:
-  - Abort the rebase, restore the fork to its pre-rebase state.
+- If found, it fetches upstream and merges `upstream/<branch>` into the fork branch.
+- **Conflict handling:** If the merge fails due to a conflict:
+  - Abort the merge, restore the fork to its pre-merge state.
   - Send a Discord notification to the configured channel describing the conflict (conflicting files, commits involved).
-  - Pause all further rebase attempts for this repo until manually re-enabled via the web UI.
-- If rebase succeeds: push the rebased branch to the fork remote, then trigger a build.
+  - Pause all further sync attempts for this repo until manually re-enabled via the web UI.
+- If merge succeeds: push the merged branch to the fork remote, then trigger a build.
 
 #### 4.2.2 User Pushes to Fork
 
