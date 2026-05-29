@@ -858,6 +858,74 @@
     height: 520px;
   }
 
+  .breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    font-size: 12px;
+    font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  }
+
+  .breadcrumb-link {
+    color: var(--purple-light);
+    text-decoration: none;
+  }
+
+  .breadcrumb-link:hover {
+    text-decoration: underline;
+  }
+
+  .breadcrumb-sep {
+    color: var(--text-faint);
+    padding: 0 4px;
+  }
+
+  .breadcrumb-current {
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .file-link {
+    color: var(--purple-light);
+    text-decoration: none;
+    font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    font-size: 12px;
+  }
+
+  .file-link:hover {
+    text-decoration: underline;
+  }
+
+  .file-view {
+    font-family: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    padding: 8px 0;
+  }
+
+  .file-line {
+    display: flex;
+    gap: 16px;
+    padding: 0 16px;
+  }
+
+  .file-line:hover {
+    background: rgba(124, 58, 237, 0.08);
+  }
+
+  .file-lineno {
+    flex: 0 0 auto;
+    width: 44px;
+    text-align: right;
+    color: var(--text-faint);
+    user-select: none;
+  }
+
+  .file-linetext {
+    flex: 1 1 auto;
+    white-space: pre;
+    color: #c4c4e0;
+  }
+
   .artifact-list {
     display: grid;
     gap: 8px;

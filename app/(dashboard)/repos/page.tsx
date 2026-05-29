@@ -91,6 +91,9 @@ export default async function ReposPage() {
                           <BuildButton repoId={repo.id} />
                         )}
                         <Link href={`/repos/${repo.id}/live`} className="btn btn-secondary btn-sm">Live</Link>
+                        {isAdmin && (
+                          <Link href={`/repos/${repo.id}/files`} className="btn btn-secondary btn-sm">Files</Link>
+                        )}
                         {repo.lastBuildAt && (
                           <>
                             <Link href={`/repos/${repo.id}/builds`} className="btn btn-secondary btn-sm">History</Link>
