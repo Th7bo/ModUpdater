@@ -2,9 +2,11 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
-import { readRepoPath, repoRoot, resolveSafePath } from './repo-files'
+import { access } from 'node:fs/promises'
+
+import { deleteRepoPath, readRepoPath, repoRoot, resolveSafePath } from './repo-files'
 
 describe('resolveSafePath', () => {
   const root = resolve('/srv/data/repos/abc')
@@ -80,5 +82,53 @@ describe('readRepoPath', () => {
   it('reports missing for nonexistent paths', async () => {
     const result = await readRepoPath(reposDir, repoId, 'nope.txt')
     expect(result.kind).toBe('missing')
+  })
+})
+
+describe('deleteRepoPath', () => {
+  let reposDir: string
+  const repoId = 'repo-del'
+
+  beforeEach(async () => {
+    reposDir = await mkdtemp(join(tmpdir(), 'repo-del-'))
+    const root = repoRoot(reposDir, repoId)
+    await mkdir(join(root, 'versions', '1.21.10', 'build', 'kspCaches'), { recursive: true })
+    await writeFile(join(root, 'versions', '1.21.10', 'build', 'kspCaches', 'id-to-file.tab'), 'x')
+    await writeFile(join(root, 'README.md'), '# Hello\n')
+    await mkdir(join(reposDir, 'keys'), { recursive: true })
+    await writeFile(join(reposDir, 'keys', 'id_ed25519'), 'SECRET KEY')
+  })
+
+  afterEach(async () => {
+    await rm(reposDir, { recursive: true, force: true })
+  })
+
+  it('deletes a single file', async () => {
+    expect(await deleteRepoPath(reposDir, repoId, 'README.md')).toBe('deleted')
+    await expect(access(join(repoRoot(reposDir, repoId), 'README.md'))).rejects.toThrow()
+  })
+
+  it('deletes a directory recursively', async () => {
+    const target = 'versions/1.21.10/build/kspCaches'
+    expect(await deleteRepoPath(reposDir, repoId, target)).toBe('deleted')
+    await expect(access(join(repoRoot(reposDir, repoId), target))).rejects.toThrow()
+    // Parent directory must survive.
+    await expect(
+      access(join(repoRoot(reposDir, repoId), 'versions', '1.21.10', 'build'))
+    ).resolves.toBeUndefined()
+  })
+
+  it('refuses to delete the repo root', async () => {
+    expect(await deleteRepoPath(reposDir, repoId, '')).toBe('invalid')
+    await expect(access(repoRoot(reposDir, repoId))).resolves.toBeUndefined()
+  })
+
+  it('refuses traversal and leaves sibling files intact', async () => {
+    expect(await deleteRepoPath(reposDir, repoId, '../keys')).toBe('invalid')
+    await expect(access(join(reposDir, 'keys', 'id_ed25519'))).resolves.toBeUndefined()
+  })
+
+  it('reports missing for a path that does not exist', async () => {
+    expect(await deleteRepoPath(reposDir, repoId, 'nope.txt')).toBe('missing')
   })
 })

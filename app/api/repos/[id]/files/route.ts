@@ -6,7 +6,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { parseConfig } from '@/src/config/env'
-import { repoRoot, resolveSafePath } from '@/src/git/repo-files'
+import { deleteRepoPath, repoRoot, resolveSafePath } from '@/src/git/repo-files'
 
 const cfg = parseConfig()
 
@@ -50,4 +50,31 @@ export async function GET(req: NextRequest, { params }: RouteContext): Promise<N
   } catch {
     return NextResponse.json({ error: 'File not found' }, { status: 404 })
   }
+}
+
+// DELETE: recursively remove a file or directory from a repo working tree. Admin only.
+export async function DELETE(req: NextRequest, { params }: RouteContext): Promise<NextResponse> {
+  const session = await auth()
+  if (session?.user.role !== 'admin') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const repo = await getRepo(db, id)
+  if (!repo) {
+    return NextResponse.json({ error: 'Repository not found' }, { status: 404 })
+  }
+
+  const relPath = req.nextUrl.searchParams.get('path') ?? ''
+  const result = await deleteRepoPath(cfg.REPOS_DIR, id, relPath)
+
+  if (result === 'invalid') {
+    return NextResponse.json({ error: 'Invalid path' }, { status: 400 })
+  }
+  if (result === 'missing') {
+    return NextResponse.json({ error: 'Path not found' }, { status: 404 })
+  }
+
+  console.log(`[files] Admin ${session.user.email ?? session.user.id} deleted ${relPath} in repo ${repo.name} (${id})`)
+  return NextResponse.json({ message: 'Deleted' }, { status: 200 })
 }

@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, readFile, rm, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 // Files larger than this are not rendered inline in the viewer; they can still
@@ -110,4 +110,30 @@ export async function readRepoPath(
   }
 
   return { kind: 'text', content: buffer.toString('utf-8'), size: info.size }
+}
+
+export type DeleteResult = 'deleted' | 'invalid' | 'missing'
+
+/**
+ * Recursively delete a file or directory within a repo's working tree.
+ * Refuses to delete the repo root itself or any path that escapes it.
+ */
+export async function deleteRepoPath(
+  reposDir: string,
+  repoId: string,
+  relPath: string
+): Promise<DeleteResult> {
+  const root = repoRoot(reposDir, repoId)
+  const target = resolveSafePath(root, relPath)
+  // Never delete the repo root itself — that would wipe the whole clone.
+  if (target === null || target === resolve(root)) return 'invalid'
+
+  try {
+    await stat(target)
+  } catch {
+    return 'missing'
+  }
+
+  await rm(target, { recursive: true, force: true })
+  return 'deleted'
 }

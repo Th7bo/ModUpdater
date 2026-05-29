@@ -7,6 +7,7 @@ import { getRepo } from '@/src/db/queries/repos'
 import { parseConfig } from '@/src/config/env'
 import { readRepoPath, type DirEntry } from '@/src/git/repo-files'
 import { EmptyState, MetaPill, PageHeader, Panel } from '@/app/(dashboard)/_components/dashboard-ui'
+import { FileDeleteButton } from '@/app/(dashboard)/_components/file-delete-button'
 
 const cfg = parseConfig()
 
@@ -53,6 +54,7 @@ export default async function RepoFilesPage({
   const result = await readRepoPath(cfg.REPOS_DIR, id, relPath)
 
   const segments = relPath.split('/').filter(Boolean)
+  const isFileView = result.kind === 'text' || result.kind === 'binary' || result.kind === 'too-large'
 
   return (
     <div className="page-stack">
@@ -85,6 +87,17 @@ export default async function RepoFilesPage({
           )
         })}
       </nav>
+
+      {isFileView && (
+        <div className="meta-strip">
+          <FileDeleteButton
+            repoId={id}
+            path={relPath}
+            label="Delete this file"
+            redirectTo={filesHref(id, parentPath(relPath))}
+          />
+        </div>
+      )}
 
       {result.kind === 'directory' && (
         <DirectoryView id={id} relPath={relPath} entries={result.entries} />
@@ -135,6 +148,7 @@ function DirectoryView({ id, relPath, entries }: { id: string; relPath: string; 
               <th>Name</th>
               <th>Type</th>
               <th>Size</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -147,11 +161,12 @@ function DirectoryView({ id, relPath, entries }: { id: string; relPath: string; 
                 </td>
                 <td className="cell-muted" data-label="Type">dir</td>
                 <td className="cell-muted" data-label="Size">—</td>
+                <td className="cell-muted" data-label="Actions">—</td>
               </tr>
             )}
             {entries.length === 0 && !relPath && (
               <tr>
-                <td colSpan={3} className="cell-muted">This directory is empty.</td>
+                <td colSpan={4} className="cell-muted">This directory is empty.</td>
               </tr>
             )}
             {entries.map((entry) => {
@@ -166,6 +181,9 @@ function DirectoryView({ id, relPath, entries }: { id: string; relPath: string; 
                   <td className="cell-muted" data-label="Type">{entry.isDirectory ? 'dir' : 'file'}</td>
                   <td className="cell-muted" data-label="Size">
                     {entry.isDirectory ? '—' : formatFileSize(entry.size)}
+                  </td>
+                  <td className="td-actions" data-label="Actions">
+                    <FileDeleteButton repoId={id} path={target} />
                   </td>
                 </tr>
               )
