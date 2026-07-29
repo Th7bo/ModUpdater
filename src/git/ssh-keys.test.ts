@@ -1,18 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { readFile, stat, mkdir, rm } from 'node:fs/promises'
+import { readFile, stat, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir, platform } from 'node:os'
+import { spawnSync } from 'node:child_process'
 
 import { storeSshKey, removeSshKey, generateSshKeyPair } from './ssh-keys'
-import { execSync } from 'node:child_process'
 
 function hasSshKeygen(): boolean {
-  try {
-    execSync('ssh-keygen -V', { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
+  const result = spawnSync('ssh-keygen', ['-V'], { stdio: 'ignore' })
+  return (result.error as NodeJS.ErrnoException | undefined)?.code !== 'ENOENT'
 }
 
 const sshKeygenAvailable = hasSshKeygen()
@@ -77,13 +73,15 @@ describe('ssh-keys', () => {
   })
 
   describe('removeSshKey', () => {
-    it('deletes the file and does not throw for non-existent path', async () => {
+    it('deletes private and public key files and does not throw for non-existent paths', async () => {
       const keyContent = 'test-key'
       const keyPath = await storeSshKey('to-delete', keyContent, testDir)
+      await writeFile(`${keyPath}.pub`, 'public-key')
 
       await removeSshKey(keyPath)
 
       await expect(stat(keyPath)).rejects.toThrow()
+      await expect(stat(`${keyPath}.pub`)).rejects.toThrow()
 
       await expect(removeSshKey(keyPath)).resolves.not.toThrow()
     })

@@ -116,7 +116,6 @@ export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) 
 
       <SshKeySection
         repoId={repoId}
-        mode={defaultValues?.mode}
         publicKey={defaultValues?.sshPublicKey}
       />
 
