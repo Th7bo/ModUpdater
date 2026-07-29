@@ -35,12 +35,43 @@ export async function createRepoAction(
   if (!session) return { message: 'Unauthorized' }
   if (session.user.role !== 'admin') return { message: 'Forbidden: Admin access required' }
 
+  const generateOnServer = formData.get('generateSshKey') === 'on'
+  const sshPrivateKeyContent = formData.get('sshPrivateKeyContent')
   const parsed = CreateRepoSchema.safeParse(parseFormData(formData))
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]> }
   }
 
-  await createRepo(db, parsed.data)
+  const repo = await createRepo(db, parsed.data)
+  let configuredKeyPath: string | undefined
+
+  try {
+    if (generateOnServer) {
+      const config = parseConfig()
+      const { publicKey, privateKeyPath } = await generateSshKeyPair(repo.id, config.SSH_KEYS_DIR)
+      configuredKeyPath = privateKeyPath
+      await updateRepo(db, repo.id, {
+        sshPrivateKeyPath: privateKeyPath,
+        sshPublicKey: publicKey,
+      })
+    } else if (typeof sshPrivateKeyContent === 'string' && sshPrivateKeyContent) {
+      const config = parseConfig()
+      const keyPath = await storeSshKey(repo.id, sshPrivateKeyContent, config.SSH_KEYS_DIR)
+      configuredKeyPath = keyPath
+      await updateRepo(db, repo.id, {
+        sshPrivateKeyPath: keyPath,
+        sshPublicKey: null,
+      })
+    }
+  } catch (err) {
+    if (configuredKeyPath) {
+      await removeSshKey(configuredKeyPath)
+    }
+    await deleteRepo(db, repo.id)
+    console.error(`[createRepoAction] Failed to configure SSH key for ${repo.id}:`, err)
+    return { message: 'Repository could not be created because its SSH key could not be configured' }
+  }
+
   redirect('/repos')
 }
 
@@ -66,6 +97,7 @@ export async function updateRepoAction(
     const config = parseConfig()
     const keyPath = await storeSshKey(id, sshPrivateKeyContent, config.SSH_KEYS_DIR)
     patch.sshPrivateKeyPath = keyPath
+    patch.sshPublicKey = null
   }
 
   const repo = await updateRepo(db, id, patch)
@@ -98,10 +130,6 @@ export async function generateSshKeyAction(
 
   const repo = await getRepo(db, id)
   if (!repo) return { success: false, error: 'Repository not found' }
-
-  if (repo.mode !== 'fork') {
-    return { success: false, error: 'SSH keys are only needed for fork repos' }
-  }
 
   try {
     const config = parseConfig()

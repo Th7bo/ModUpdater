@@ -6,7 +6,6 @@ import { CopyButton } from './copy-button'
 
 type Props = {
   repoId?: string
-  mode?: string
   publicKey?: string | null
 }
 
@@ -16,7 +15,7 @@ const labelCls = 'field-label'
 const hintCls = 'field-hint'
 const errCls = 'field-error'
 
-export function SshKeySection({ repoId, mode, publicKey: initialPublicKey }: Props) {
+export function SshKeySection({ repoId, publicKey: initialPublicKey }: Props) {
   const [publicKey, setPublicKey] = useState(initialPublicKey)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,8 +35,7 @@ export function SshKeySection({ repoId, mode, publicKey: initialPublicKey }: Pro
     }
   }
 
-  const isFork = mode === 'fork'
-  const canGenerate = repoId && isFork
+  const canGenerate = Boolean(repoId)
 
   return (
     <section className="form-section">
@@ -60,6 +58,25 @@ export function SshKeySection({ repoId, mode, publicKey: initialPublicKey }: Pro
             <p className={hintCls}>
               Add this as a Deploy Key in GitHub. Enable write access when the platform must push to the fork.
             </p>
+          </div>
+        )}
+
+        {!repoId && (
+          <div className={fieldCls}>
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                name="generateSshKey"
+                value="on"
+                className="mt-1"
+              />
+              <span>
+                <span className={labelCls}>Generate SSH key on the server</span>
+                <span className={`${hintCls} block`}>
+                  A key pair will be created after the repository is saved. The public key will be available on the edit page.
+                </span>
+              </span>
+            </label>
           </div>
         )}
 
@@ -96,7 +113,8 @@ export function SshKeySection({ repoId, mode, publicKey: initialPublicKey }: Pro
             autoComplete="off"
           />
           <p className={hintCls}>
-            Optional. Paste your own private key instead of generating one. The key is stored on disk with 600 permissions.
+            Optional. Paste your own private key instead of generating one. If server generation is selected, it takes precedence.
+            The key is stored on disk with 600 permissions.
           </p>
         </div>
       </div>

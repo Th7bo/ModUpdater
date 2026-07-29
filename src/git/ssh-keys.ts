@@ -12,6 +12,7 @@ export async function storeSshKey(
   keyContent: string,
   keysDir: string
 ): Promise<string> {
+  await mkdir(keysDir, { recursive: true })
   const keyPath = join(keysDir, `repo-${repoId}.pem`)
 
   await writeFile(keyPath, keyContent, { encoding: 'utf-8', mode: 0o600 })
@@ -21,11 +22,13 @@ export async function storeSshKey(
 }
 
 export async function removeSshKey(keyPath: string): Promise<void> {
-  try {
-    await unlink(keyPath)
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw err
+  for (const path of [keyPath, `${keyPath}.pub`]) {
+    try {
+      await unlink(path)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw err
+      }
     }
   }
 }
