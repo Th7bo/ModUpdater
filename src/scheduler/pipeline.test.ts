@@ -12,6 +12,7 @@ const mockDetectStonecutter = vi.fn()
 const mockSelectBuildTask = vi.fn()
 const mockRunBuild = vi.fn()
 const mockCollectArtifacts = vi.fn()
+const mockFilterDismissedArtifacts = vi.fn((paths: string[], _patterns?: string) => paths)
 const mockStoreArtifacts = vi.fn()
 const mockSendBuildStartedNotification = vi.fn()
 const mockSendSuccessNotification = vi.fn()
@@ -69,6 +70,8 @@ vi.mock('@/src/builder/runner', () => ({
 
 vi.mock('@/src/builder/artifacts', () => ({
   collectArtifacts: (...args: unknown[]) => mockCollectArtifacts(...args),
+  filterDismissedArtifacts: (paths: string[], patterns: string) =>
+    mockFilterDismissedArtifacts(paths, patterns),
   storeArtifacts: (...args: unknown[]) => mockStoreArtifacts(...args),
 }))
 
@@ -98,6 +101,7 @@ const baseRepo = {
   discordChannelId: '123456789',
   customBuildTask: null,
   notifyOnBuildStart: false,
+  artifactExcludePatterns: '',
   sshPrivateKeyPath: null,
   syncPaused: false,
   lastCommitHash: 'old-hash',
@@ -123,6 +127,7 @@ describe('triggerBuild', () => {
     mockSelectBuildTask.mockReturnValue('build')
     mockRunBuild.mockResolvedValue({ success: true, logTail: 'BUILD SUCCESSFUL', durationMs: 5000 })
     mockCollectArtifacts.mockResolvedValue(['/path/to/mod.jar'])
+    mockFilterDismissedArtifacts.mockImplementation((paths: string[]) => paths)
     mockStoreArtifacts.mockResolvedValue(mockStoredArtifacts)
     mockSendBuildStartedNotification.mockResolvedValue(undefined)
     mockSendSuccessNotification.mockResolvedValue(undefined)
@@ -202,6 +207,32 @@ describe('triggerBuild', () => {
     await triggerBuild('test-repo-id', 'manual')
 
     expect(mockSendBuildStartedNotification).not.toHaveBeenCalled()
+  })
+
+  it('dismisses configured artifacts before storing and notifying', async () => {
+    const collected = [
+      '/build/Sidequest-26.2-1.0.0.jar',
+      '/build/platform-api-1.0.0.jar',
+    ]
+    const included = ['/build/Sidequest-26.2-1.0.0.jar']
+    mockGetRepo.mockResolvedValue({
+      ...baseRepo,
+      artifactExcludePatterns: 'platform-*.jar',
+    })
+    mockCollectArtifacts.mockResolvedValue(collected)
+    mockFilterDismissedArtifacts.mockReturnValue(included)
+
+    await triggerBuild('test-repo-id', 'manual')
+
+    expect(mockFilterDismissedArtifacts).toHaveBeenCalledWith(
+      collected,
+      'platform-*.jar'
+    )
+    expect(mockStoreArtifacts).toHaveBeenCalledWith(
+      expect.any(String),
+      included,
+      './data/artifacts'
+    )
   })
 
   it('idempotency: same hash as lastCommitHash → no build', async () => {

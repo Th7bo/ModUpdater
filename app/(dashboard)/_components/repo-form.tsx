@@ -134,6 +134,31 @@ export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) 
         </div>
       </section>
 
+      <section className="form-section">
+        <h2 className="form-section-title">Artifact delivery</h2>
+        <p className="form-section-note">
+          Exclude helper or library JARs that should not be offered as downloadable mod artifacts.
+        </p>
+        <div className="mt-4">
+          <div className={fieldCls}>
+            <label className={labelCls} htmlFor="artifactExcludePatterns">Dismiss artifact patterns</label>
+            <textarea
+              className={`${inputCls} cell-code min-h-28`}
+              id="artifactExcludePatterns"
+              name="artifactExcludePatterns"
+              rows={4}
+              defaultValue={defaultValues?.artifactExcludePatterns ?? ''}
+              placeholder={'platform-*.jar\nui-*.jar\n*-testkit-*.jar'}
+            />
+            <p className={hintCls}>
+              One filename pattern per line. Use * for any text and ? for one character. Matching existing artifacts are hidden,
+              and future matches are not stored or sent to Discord.
+            </p>
+            {errs.artifactExcludePatterns && <p className={errCls}>{errs.artifactExcludePatterns.join(', ')}</p>}
+          </div>
+        </div>
+      </section>
+
       <SshKeySection
         repoId={repoId}
         publicKey={defaultValues?.sshPublicKey}

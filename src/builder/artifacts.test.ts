@@ -8,7 +8,42 @@ vi.mock('node:fs/promises', () => ({
   stat: (...args: unknown[]) => mockStat(...args),
 }))
 
-import { collectArtifacts } from './artifacts'
+import {
+  collectArtifacts,
+  filterDismissedArtifacts,
+  isArtifactDismissed,
+  parseArtifactExcludePatterns,
+} from './artifacts'
+
+describe('artifact dismissal patterns', () => {
+  it('parses one trimmed pattern per non-empty line', () => {
+    expect(parseArtifactExcludePatterns(' platform-*.jar\n\nui-?.jar \r\n')).toEqual([
+      'platform-*.jar',
+      'ui-?.jar',
+    ])
+  })
+
+  it('supports exact names, * wildcards, and ? wildcards', () => {
+    const patterns = 'platform-*.jar\nui-?.jar\nREADME.jar'
+
+    expect(isArtifactDismissed('platform-api-1.0.0.jar', patterns)).toBe(true)
+    expect(isArtifactDismissed('ui-a.jar', patterns)).toBe(true)
+    expect(isArtifactDismissed('ui-components.jar', patterns)).toBe(false)
+    expect(isArtifactDismissed('README.jar', patterns)).toBe(true)
+  })
+
+  it('filters only matching artifact filenames', () => {
+    const artifacts = [
+      '/build/Sidequest-26.1.2-1.0.0.jar',
+      '/build/platform-api-1.0.0.jar',
+      '/build/ui-components-1.0.0.jar',
+    ]
+
+    expect(filterDismissedArtifacts(artifacts, 'platform-*.jar\nui-*.jar')).toEqual([
+      '/build/Sidequest-26.1.2-1.0.0.jar',
+    ])
+  })
+})
 
 describe('collectArtifacts', () => {
   beforeEach(() => {

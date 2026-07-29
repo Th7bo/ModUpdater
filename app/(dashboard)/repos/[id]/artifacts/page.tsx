@@ -6,6 +6,7 @@ import { db } from '@/src/db/client'
 import { getRepo } from '@/src/db/queries/repos'
 import { listBuildRuns } from '@/src/db/queries/build-runs'
 import { parseConfig } from '@/src/config/env'
+import { isArtifactDismissed } from '@/src/builder/artifacts'
 import { EmptyState, PageHeader, Panel, StatusBadge } from '@/app/(dashboard)/_components/dashboard-ui'
 
 const cfg = parseConfig()
@@ -47,7 +48,10 @@ export default async function ArtifactsPage({
   const successfulBuilds = builds.filter(
     (build) => build.status === 'success' && build.artifactPathsJson
   )
-  const artifactCount = successfulBuilds.reduce((count, build) => count + parseArtifacts(build.artifactPathsJson).length, 0)
+  const artifactCount = successfulBuilds.reduce(
+    (count, build) => count + parseArtifacts(build.artifactPathsJson, repo.artifactExcludePatterns).length,
+    0
+  )
 
   return (
     <div className="page-stack">
@@ -69,7 +73,7 @@ export default async function ArtifactsPage({
         <Panel title="Recent deliverables" subtitle={`${artifactCount} artifact${artifactCount === 1 ? '' : 's'} across the latest successful builds`}>
           <div className="space-y-5">
             {successfulBuilds.map((build) => {
-              const artifacts = parseArtifacts(build.artifactPathsJson)
+              const artifacts = parseArtifacts(build.artifactPathsJson, repo.artifactExcludePatterns)
 
               return (
                 <section key={build.id} className="border-b border-[var(--line)] pb-5 last:border-0 last:pb-0">
@@ -112,20 +116,23 @@ export default async function ArtifactsPage({
   )
 }
 
-function parseArtifacts(raw: string | null): Artifact[] {
+function parseArtifacts(raw: string | null, excludePatterns: string): Artifact[] {
   try {
     const parsed = JSON.parse(raw || '[]')
     if (!Array.isArray(parsed) || parsed.length === 0) return []
 
     if (typeof parsed[0] === 'string') {
-      return parsed.map((path: string) => ({
-        filename: path.split('/').pop() || path,
-        path,
-        size: 0,
-      }))
+      return parsed
+        .map((path: string) => ({
+          filename: path.split('/').pop() || path,
+          path,
+          size: 0,
+        }))
+        .filter((artifact) => !isArtifactDismissed(artifact.filename, excludePatterns))
     }
 
-    return parsed as Artifact[]
+    return (parsed as Artifact[])
+      .filter((artifact) => !isArtifactDismissed(artifact.filename, excludePatterns))
   } catch {
     return []
   }

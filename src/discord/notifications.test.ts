@@ -33,6 +33,7 @@ const mockRepo: PublicRepo = {
   customBuildTask: null,
   jdkVersion: '21',
   notifyOnBuildStart: false,
+  artifactExcludePatterns: '',
   sshPublicKey: null,
   upstreamUrl: null,
   syncPaused: false,

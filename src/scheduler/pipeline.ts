@@ -9,7 +9,12 @@ import { createBuildRun } from '@/src/db/queries/build-runs'
 import { ensureCloned, fetchLatest, getHeadHash, getNewCommits, type Commit } from '@/src/git/repo-sync'
 import { detectStonecutter, selectBuildTask } from '@/src/builder/stonecutter'
 import { runBuild, type JdkVersion } from '@/src/builder/runner'
-import { collectArtifacts, storeArtifacts, cleanupOldArtifacts } from '@/src/builder/artifacts'
+import {
+  collectArtifacts,
+  filterDismissedArtifacts,
+  storeArtifacts,
+  cleanupOldArtifacts,
+} from '@/src/builder/artifacts'
 import { listBuildRuns } from '@/src/db/queries/build-runs'
 import {
   sendBuildStartedNotification,
@@ -141,8 +146,16 @@ async function executeBuild(
   let storedArtifacts: Awaited<ReturnType<typeof storeArtifacts>> = []
 
   if (buildResult.success) {
-    const artifactPaths = await collectArtifacts(repoDir)
+    const collectedArtifactPaths = await collectArtifacts(repoDir)
+    const artifactPaths = filterDismissedArtifacts(
+      collectedArtifactPaths,
+      repo.artifactExcludePatterns
+    )
+    const dismissedCount = collectedArtifactPaths.length - artifactPaths.length
     console.log(`[pipeline] Build succeeded for ${repo.name}, ${artifactPaths.length} artifact(s)`)
+    if (dismissedCount > 0) {
+      console.log(`[pipeline] Dismissed ${dismissedCount} artifact(s) for ${repo.name}`)
+    }
 
     if (artifactPaths.length > 0) {
       try {

@@ -1,0 +1,1 @@
+ALTER TABLE "repos" ADD COLUMN "artifact_exclude_patterns" text DEFAULT '' NOT NULL;

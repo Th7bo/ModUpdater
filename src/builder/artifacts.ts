@@ -12,6 +12,36 @@ function isExcluded(filename: string): boolean {
   return false
 }
 
+export function parseArtifactExcludePatterns(value: string | null | undefined): string[] {
+  return (value ?? '')
+    .split(/\r?\n/)
+    .map((pattern) => pattern.trim())
+    .filter(Boolean)
+}
+
+function globToRegExp(pattern: string): RegExp {
+  const escaped = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
+  return new RegExp(`^${escaped}$`)
+}
+
+export function isArtifactDismissed(
+  filename: string,
+  patterns: string | null | undefined
+): boolean {
+  return parseArtifactExcludePatterns(patterns)
+    .some((pattern) => globToRegExp(pattern).test(filename))
+}
+
+export function filterDismissedArtifacts(
+  paths: string[],
+  patterns: string | null | undefined
+): string[] {
+  return paths.filter((path) => !isArtifactDismissed(basename(path), patterns))
+}
+
 async function collectFromDir(dir: string): Promise<string[]> {
   try {
     const entries = await readdir(dir)
