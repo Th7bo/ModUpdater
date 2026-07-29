@@ -13,6 +13,7 @@ export const repos = pgTable('repos', {
   customBuildTask: text('custom_build_task'),
   jdkVersion: text('jdk_version', { enum: ['21', '25'] }).default('21'),
   notifyOnBuildStart: boolean('notify_on_build_start').notNull().default(false),
+  artifactExcludePatterns: text('artifact_exclude_patterns').notNull().default(''),
   sshPrivateKeyPath: text('ssh_private_key_path'),
   sshPublicKey: text('ssh_public_key'),
   webhookSecret: text('webhook_secret'),

@@ -19,7 +19,7 @@ vi.mock('@/src/git/ssh-keys', () => ({
   removeSshKey: vi.fn(),
 }))
 
-import { createRepoAction, generateSshKeyAction } from './actions'
+import { createRepoAction, generateSshKeyAction, updateRepoAction } from './actions'
 import { auth } from '@/src/auth'
 import { createRepo, deleteRepo, getRepo, updateRepo } from '@/src/db/queries/repos'
 import { generateSshKeyPair, storeSshKey } from '@/src/git/ssh-keys'
@@ -54,6 +54,20 @@ beforeEach(() => {
 })
 
 describe('createRepoAction SSH setup', () => {
+  it('persists artifact dismissal patterns', async () => {
+    const data = validFormData()
+    data.set('artifactExcludePatterns', 'platform-*.jar\nui-*.jar')
+
+    await createRepoAction({}, data)
+
+    expect(createRepo).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({
+        artifactExcludePatterns: 'platform-*.jar\nui-*.jar',
+      })
+    )
+  })
+
   it('persists the build-start notification toggle', async () => {
     const data = validFormData()
     data.append('notifyOnBuildStart', 'false')
@@ -104,6 +118,19 @@ describe('createRepoAction SSH setup', () => {
 
     expect(deleteRepo).toHaveBeenCalledWith({}, repoId)
     expect(result.message).toContain('SSH key')
+  })
+})
+
+describe('updateRepoAction artifact dismissal', () => {
+  it('allows all patterns to be cleared', async () => {
+    const data = new FormData()
+    data.set('artifactExcludePatterns', '')
+
+    await updateRepoAction(repoId, {}, data)
+
+    expect(updateRepo).toHaveBeenCalledWith({}, repoId, {
+      artifactExcludePatterns: '',
+    })
   })
 })
 

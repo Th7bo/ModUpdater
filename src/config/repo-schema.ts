@@ -14,6 +14,7 @@ export const CreateRepoSchema = z.object({
   customBuildTask: z.string().optional(),
   jdkVersion: z.enum(['21', '25']).optional(),
   notifyOnBuildStart: z.boolean().optional(),
+  artifactExcludePatterns: z.string().max(4000, 'Artifact exclusion patterns are too long').optional(),
   webhookSecret: z.string().optional(),
   upstreamUrl: z.string().refine(
     (v) => /^(https?:\/\/.+|git@.+:.+\.git)$/.test(v),

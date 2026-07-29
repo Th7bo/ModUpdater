@@ -26,6 +26,9 @@ function parseFormData(formData: FormData): Record<string, unknown> {
   if ('notifyOnBuildStart' in result) {
     result.notifyOnBuildStart = result.notifyOnBuildStart === 'true'
   }
+  if (formData.has('artifactExcludePatterns')) {
+    result.artifactExcludePatterns = formData.get('artifactExcludePatterns')?.toString() ?? ''
+  }
   return result
 }
 
