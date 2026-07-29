@@ -54,6 +54,19 @@ beforeEach(() => {
 })
 
 describe('createRepoAction SSH setup', () => {
+  it('persists the build-start notification toggle', async () => {
+    const data = validFormData()
+    data.append('notifyOnBuildStart', 'false')
+    data.append('notifyOnBuildStart', 'true')
+
+    await createRepoAction({}, data)
+
+    expect(createRepo).toHaveBeenCalledWith(
+      {},
+      expect.objectContaining({ notifyOnBuildStart: true })
+    )
+  })
+
   it('generates and stores a server-managed key when selected', async () => {
     const data = validFormData()
     data.set('generateSshKey', 'on')

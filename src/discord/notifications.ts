@@ -25,6 +25,34 @@ export interface SuccessNotificationOptions {
   baseUrl: string
 }
 
+export async function sendBuildStartedNotification(
+  channelId: string,
+  repo: PublicRepo,
+  commits: Commit[],
+  task: string
+): Promise<void> {
+  const client = getDiscordClient()
+  await waitForReady()
+
+  const channel = (await client.channels.fetch(channelId)) as TextChannel
+
+  const embed = new EmbedBuilder()
+    .setTitle(`Build started: ${repo.name}`)
+    .setColor(0x3b82f6)
+    .addFields(
+      { name: 'Repository', value: repo.gitUrl, inline: true },
+      { name: 'Branch', value: repo.branch, inline: true },
+      { name: 'Task', value: task, inline: true }
+    )
+
+  if (commits.length > 0) {
+    const commitText = formatCommitList(commits).slice(0, 1024)
+    embed.addFields({ name: 'Commits', value: commitText })
+  }
+
+  await channel.send({ embeds: [embed] })
+}
+
 export async function sendSuccessNotification(
   options: SuccessNotificationOptions
 ): Promise<void> {

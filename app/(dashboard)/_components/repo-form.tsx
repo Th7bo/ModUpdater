@@ -100,6 +100,26 @@ export function RepoForm({ action, defaultValues, repoId, submitLabel }: Props) 
           </div>
 
           <div className={fieldCls}>
+            <input type="hidden" name="notifyOnBuildStart" value="false" />
+            <label className="flex items-start gap-3" htmlFor="notifyOnBuildStart">
+              <input
+                id="notifyOnBuildStart"
+                name="notifyOnBuildStart"
+                type="checkbox"
+                value="true"
+                defaultChecked={defaultValues?.notifyOnBuildStart ?? false}
+                className="mt-1"
+              />
+              <span>
+                <span className={labelCls}>Send build-start embed</span>
+                <span className={`${hintCls} block`}>
+                  Notify the Discord channel as soon as a build begins.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className={fieldCls}>
             <label className={labelCls} htmlFor="webhookSecret">Webhook secret</label>
             <input className={inputCls} id="webhookSecret" name="webhookSecret" type="password" placeholder={defaultValues ? 'Leave blank to keep current' : ''} autoComplete="new-password" />
             <p className={hintCls}>Write-only. The current value is never shown.</p>

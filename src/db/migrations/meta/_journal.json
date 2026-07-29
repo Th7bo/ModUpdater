@@ -22,6 +22,13 @@
       "when": 1779899257275,
       "tag": "0002_fancy_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785352630115,
+      "tag": "0003_breezy_vargas",
+      "breakpoints": true
     }
   ]
 }

@@ -11,7 +11,12 @@ vi.mock('./client', () => ({
   waitForReady: vi.fn().mockResolvedValue(undefined),
 }))
 
-import { sendSuccessNotification, sendFailureNotification, sendConflictNotification } from './notifications'
+import {
+  sendBuildStartedNotification,
+  sendSuccessNotification,
+  sendFailureNotification,
+  sendConflictNotification,
+} from './notifications'
 import type { PublicRepo } from '@/src/db/queries/repos'
 import type { Commit } from '@/src/git/repo-sync'
 import type { StoredArtifact } from '@/src/builder/artifacts'
@@ -27,6 +32,7 @@ const mockRepo: PublicRepo = {
   discordChannelId: '123456789',
   customBuildTask: null,
   jdkVersion: '21',
+  notifyOnBuildStart: false,
   sshPublicKey: null,
   upstreamUrl: null,
   syncPaused: false,
@@ -41,6 +47,29 @@ const mockCommits: Commit[] = [
   { hash: 'abc1234567890', author: 'Dev', message: 'Add feature', date: new Date() },
   { hash: 'def1234567890', author: 'Dev', message: 'Fix bug', date: new Date() },
 ]
+
+describe('sendBuildStartedNotification', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sends an embed with repository, branch, task, and commits', async () => {
+    await sendBuildStartedNotification('channel-123', mockRepo, mockCommits, 'build')
+
+    expect(mockChannelsFetch).toHaveBeenCalledWith('channel-123')
+    expect(mockSend).toHaveBeenCalledTimes(1)
+
+    const embed = mockSend.mock.calls[0][0].embeds[0]
+    expect(embed.data.title).toBe('Build started: TestMod')
+    expect(embed.data.color).toBe(0x3b82f6)
+    expect(embed.data.fields).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'Repository', value: mockRepo.gitUrl }),
+      expect.objectContaining({ name: 'Branch', value: mockRepo.branch }),
+      expect.objectContaining({ name: 'Task', value: 'build' }),
+      expect.objectContaining({ name: 'Commits' }),
+    ]))
+  })
+})
 
 describe('sendSuccessNotification', () => {
   beforeEach(() => {

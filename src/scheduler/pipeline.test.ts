@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const mockGetRepo = vi.fn()
 const mockUpdateRepo = vi.fn()
 const mockCreateBuildRun = vi.fn()
+const mockListBuildRuns = vi.fn()
 const mockEnsureCloned = vi.fn()
 const mockFetchLatest = vi.fn()
 const mockGetHeadHash = vi.fn()
@@ -12,6 +13,7 @@ const mockSelectBuildTask = vi.fn()
 const mockRunBuild = vi.fn()
 const mockCollectArtifacts = vi.fn()
 const mockStoreArtifacts = vi.fn()
+const mockSendBuildStartedNotification = vi.fn()
 const mockSendSuccessNotification = vi.fn()
 const mockSendFailureNotification = vi.fn()
 const mockToPublicRepo = vi.fn((repo) => repo)
@@ -46,6 +48,7 @@ vi.mock('@/src/db/queries/repos', () => ({
 
 vi.mock('@/src/db/queries/build-runs', () => ({
   createBuildRun: (...args: unknown[]) => mockCreateBuildRun(...args),
+  listBuildRuns: (...args: unknown[]) => mockListBuildRuns(...args),
 }))
 
 vi.mock('@/src/git/repo-sync', () => ({
@@ -70,6 +73,7 @@ vi.mock('@/src/builder/artifacts', () => ({
 }))
 
 vi.mock('@/src/discord/notifications', () => ({
+  sendBuildStartedNotification: (...args: unknown[]) => mockSendBuildStartedNotification(...args),
   sendSuccessNotification: (...args: unknown[]) => mockSendSuccessNotification(...args),
   sendFailureNotification: (...args: unknown[]) => mockSendFailureNotification(...args),
 }))
@@ -93,6 +97,7 @@ const baseRepo = {
   detectionMethod: 'polling',
   discordChannelId: '123456789',
   customBuildTask: null,
+  notifyOnBuildStart: false,
   sshPrivateKeyPath: null,
   syncPaused: false,
   lastCommitHash: 'old-hash',
@@ -119,9 +124,11 @@ describe('triggerBuild', () => {
     mockRunBuild.mockResolvedValue({ success: true, logTail: 'BUILD SUCCESSFUL', durationMs: 5000 })
     mockCollectArtifacts.mockResolvedValue(['/path/to/mod.jar'])
     mockStoreArtifacts.mockResolvedValue(mockStoredArtifacts)
+    mockSendBuildStartedNotification.mockResolvedValue(undefined)
     mockSendSuccessNotification.mockResolvedValue(undefined)
     mockSendFailureNotification.mockResolvedValue(undefined)
     mockCreateBuildRun.mockResolvedValue({})
+    mockListBuildRuns.mockResolvedValue([])
     mockUpdateRepo.mockResolvedValue({})
   })
 
@@ -171,6 +178,30 @@ describe('triggerBuild', () => {
       'main',
       '/data/keys/repo-test.pem'
     )
+  })
+
+  it('sends a build-start embed only when enabled', async () => {
+    mockGetRepo.mockResolvedValue({
+      ...baseRepo,
+      notifyOnBuildStart: true,
+    })
+
+    await triggerBuild('test-repo-id', 'manual')
+
+    expect(mockSendBuildStartedNotification).toHaveBeenCalledWith(
+      '123456789',
+      expect.objectContaining({ name: 'TestMod' }),
+      mockCommits,
+      'build'
+    )
+    expect(mockSendBuildStartedNotification.mock.invocationCallOrder[0])
+      .toBeLessThan(mockRunBuild.mock.invocationCallOrder[0])
+  })
+
+  it('does not send a build-start embed when disabled', async () => {
+    await triggerBuild('test-repo-id', 'manual')
+
+    expect(mockSendBuildStartedNotification).not.toHaveBeenCalled()
   })
 
   it('idempotency: same hash as lastCommitHash → no build', async () => {
