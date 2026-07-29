@@ -13,6 +13,7 @@ export const CreateRepoSchema = z.object({
   discordChannelId: z.string().min(1, 'Discord channel ID is required'),
   customBuildTask: z.string().optional(),
   jdkVersion: z.enum(['21', '25']).optional(),
+  notifyOnBuildStart: z.boolean().optional(),
   webhookSecret: z.string().optional(),
   upstreamUrl: z.string().refine(
     (v) => /^(https?:\/\/.+|git@.+:.+\.git)$/.test(v),

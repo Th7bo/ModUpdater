@@ -11,7 +11,11 @@ import { detectStonecutter, selectBuildTask } from '@/src/builder/stonecutter'
 import { runBuild, type JdkVersion } from '@/src/builder/runner'
 import { collectArtifacts, storeArtifacts, cleanupOldArtifacts } from '@/src/builder/artifacts'
 import { listBuildRuns } from '@/src/db/queries/build-runs'
-import { sendSuccessNotification, sendFailureNotification } from '@/src/discord/notifications'
+import {
+  sendBuildStartedNotification,
+  sendSuccessNotification,
+  sendFailureNotification,
+} from '@/src/discord/notifications'
 import { toPublicRepo } from '@/src/db/queries/repos'
 import { enqueueBuild } from './build-queue'
 import { createLogFile, finalizeLog, getRelativeLogPath } from '@/src/logging/activity-log'
@@ -104,6 +108,19 @@ async function executeBuild(
     })
   } catch (err) {
     console.error(`[pipeline] Failed to create log file for ${repo.name}:`, err)
+  }
+
+  if (repo.notifyOnBuildStart) {
+    try {
+      await sendBuildStartedNotification(
+        repo.discordChannelId,
+        toPublicRepo(repo),
+        commits,
+        task
+      )
+    } catch (err) {
+      console.error(`[pipeline] Build-start notification failed for ${repo.name}:`, err)
+    }
   }
 
   const jdkVersion = (repo.jdkVersion ?? '21') as JdkVersion

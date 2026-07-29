@@ -23,6 +23,9 @@ function parseFormData(formData: FormData): Record<string, unknown> {
   if ('pollingIntervalMs' in result) {
     result.pollingIntervalMs = Number(result.pollingIntervalMs)
   }
+  if ('notifyOnBuildStart' in result) {
+    result.notifyOnBuildStart = result.notifyOnBuildStart === 'true'
+  }
   return result
 }
 
