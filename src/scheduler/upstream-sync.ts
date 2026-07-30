@@ -84,6 +84,9 @@ export async function syncForkUpstream(repoId: string): Promise<void> {
 
     if (!mergeResult.success) {
       await appendLog(logHandle!, `Merge failed${mergeResult.conflicting ? ' due to conflicts' : ''}`)
+      if (mergeResult.error) {
+        await appendLog(logHandle!, `Git error: ${mergeResult.error}`)
+      }
 
       if (mergeResult.conflicting && mergeResult.conflictingFiles) {
         await appendLog(logHandle!, `Conflicting files: ${mergeResult.conflictingFiles.join(', ')}`)
@@ -91,6 +94,10 @@ export async function syncForkUpstream(repoId: string): Promise<void> {
 
       await appendLog(logHandle!, `Aborting merge and restoring to ${snapshotHash}...`)
       await abortMergeAndRestore(repoDir, snapshotHash)
+
+      if (!mergeResult.conflicting) {
+        throw new Error(`Upstream merge failed: ${mergeResult.error ?? 'unknown Git error'}`)
+      }
 
       await appendLog(logHandle!, 'Pausing repository due to merge conflict')
       await pauseRepo(db, repo.id, 'Merge conflict with upstream')

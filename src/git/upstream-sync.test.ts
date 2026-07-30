@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import simpleGit from 'simple-git'
 
 const mockGitInstance = {
   getRemotes: vi.fn(),
@@ -126,6 +127,21 @@ describe('upstream-sync', () => {
   })
 
   describe('attemptMerge', () => {
+    it('configures an identity for automated merge commits', async () => {
+      mockGitInstance.merge.mockResolvedValue({})
+
+      await attemptMerge('/repo', 'main')
+
+      expect(vi.mocked(simpleGit)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.arrayContaining([
+            'user.name=ModUpdater',
+            'user.email=modupdater@localhost',
+          ]),
+        })
+      )
+    })
+
     it('returns success when merge succeeds', async () => {
       mockGitInstance.merge.mockResolvedValue({})
 
@@ -146,6 +162,7 @@ describe('upstream-sync', () => {
       expect(result.success).toBe(false)
       expect(result.conflicting).toBe(true)
       expect(result.conflictingFiles).toEqual(['file1.ts', 'file2.ts'])
+      expect(result.error).toBe('CONFLICT')
     })
 
     it('returns failure without conflicts on other merge errors', async () => {
@@ -158,6 +175,7 @@ describe('upstream-sync', () => {
 
       expect(result.success).toBe(false)
       expect(result.conflicting).toBe(false)
+      expect(result.error).toBe('Other error')
     })
   })
 
