@@ -6,20 +6,27 @@ export interface MergeResult {
   success: boolean
   conflicting: boolean
   conflictingFiles?: string[]
+  error?: string
 }
 
 function createGitInstance(dir: string, sshKeyPath?: string): SimpleGit {
+  const gitConfig = [
+    'user.name=ModUpdater',
+    'user.email=modupdater@localhost',
+  ]
+
+  if (sshKeyPath) {
+    gitConfig.push(
+      `core.sshCommand=ssh -i ${sshKeyPath} -o StrictHostKeyChecking=no -o BatchMode=yes`
+    )
+  }
+
   const options: Partial<SimpleGitOptions> = {
     baseDir: dir,
+    config: gitConfig,
     unsafe: {
       allowUnsafeSshCommand: true,
     },
-  }
-
-  if (sshKeyPath) {
-    options.config = [
-      `core.sshCommand=ssh -i ${sshKeyPath} -o StrictHostKeyChecking=no -o BatchMode=yes`,
-    ]
   }
 
   return simpleGit(options).env({ GIT_TERMINAL_PROMPT: '0' })
@@ -104,20 +111,23 @@ export async function attemptMerge(
       success: true,
       conflicting: false,
     }
-  } catch {
+  } catch (err) {
     const status = await git.status()
+    const error = err instanceof Error ? err.message : String(err)
 
     if (status.conflicted.length > 0) {
       return {
         success: false,
         conflicting: true,
         conflictingFiles: status.conflicted,
+        error,
       }
     }
 
     return {
       success: false,
       conflicting: false,
+      error,
     }
   }
 }
