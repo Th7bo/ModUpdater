@@ -155,9 +155,26 @@ export async function getConflictingFiles(dir: string): Promise<string[]> {
 
 export async function pushToOrigin(
   dir: string,
+  originUrl: string,
   branch: string,
   sshKeyPath?: string
-): Promise<void> {
+): Promise<string> {
   const git = createGitInstance(dir, sshKeyPath)
-  await git.push('origin', branch)
+  const localHash = (await git.revparse(['HEAD'])).trim()
+
+  await git.push(originUrl, `HEAD:refs/heads/${branch}`)
+
+  const remoteRefs = await git.listRemote([
+    originUrl,
+    `refs/heads/${branch}`,
+  ])
+  const remoteHash = remoteRefs.trim().split(/\s+/)[0] ?? ''
+
+  if (remoteHash !== localHash) {
+    throw new Error(
+      `Push verification failed for ${branch}: expected ${localHash}, received ${remoteHash || 'no remote ref'}`
+    )
+  }
+
+  return remoteHash
 }

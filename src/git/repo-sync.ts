@@ -35,6 +35,20 @@ export async function ensureCloned(
 
   if (existsSync(gitDir)) {
     const git = createGitInstance(dir, sshKeyPath)
+    const remotes = await git.getRemotes(true)
+    const origin = remotes.find((remote) => remote.name === 'origin')
+
+    if (!origin) {
+      await git.addRemote('origin', gitUrl)
+    } else {
+      if (origin.refs.fetch !== gitUrl) {
+        await git.remote(['set-url', 'origin', gitUrl])
+      }
+      if (origin.refs.push !== gitUrl) {
+        await git.remote(['set-url', '--push', 'origin', gitUrl])
+      }
+    }
+
     await git.fetch()
     return
   }

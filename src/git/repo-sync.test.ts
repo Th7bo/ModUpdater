@@ -11,6 +11,9 @@ const mockGitInstance = {
       { hash: 'commit1', author: 'Author', message: 'First commit', date: '2024-01-01T00:00:00Z' },
     ],
   }),
+  getRemotes: vi.fn(),
+  addRemote: vi.fn().mockResolvedValue(undefined),
+  remote: vi.fn().mockResolvedValue(undefined),
   env: vi.fn().mockReturnThis(),
 }
 
@@ -31,6 +34,15 @@ import { ensureCloned, fetchLatest, getHeadHash, getNewCommits } from './repo-sy
 describe('ensureCloned', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGitInstance.getRemotes.mockResolvedValue([
+      {
+        name: 'origin',
+        refs: {
+          fetch: 'https://github.com/user/repo.git',
+          push: 'https://github.com/user/repo.git',
+        },
+      },
+    ])
   })
 
   it('calls git.clone when the directory does not contain a git repo', async () => {
@@ -47,6 +59,34 @@ describe('ensureCloned', () => {
     await ensureCloned('https://github.com/user/repo.git', '/repos/test', undefined)
 
     expect(mockGitInstance.clone).not.toHaveBeenCalled()
+    expect(mockGitInstance.fetch).toHaveBeenCalled()
+  })
+
+  it('repairs stale fetch and push URLs before fetching an existing clone', async () => {
+    vi.mocked(existsSync).mockReturnValue(true)
+    mockGitInstance.getRemotes.mockResolvedValue([
+      {
+        name: 'origin',
+        refs: {
+          fetch: 'https://github.com/old/repo.git',
+          push: 'https://github.com/old/repo.git',
+        },
+      },
+    ])
+
+    await ensureCloned('git@github.com:user/repo.git', '/repos/test', '/keys/repo.pem')
+
+    expect(mockGitInstance.remote).toHaveBeenCalledWith([
+      'set-url',
+      'origin',
+      'git@github.com:user/repo.git',
+    ])
+    expect(mockGitInstance.remote).toHaveBeenCalledWith([
+      'set-url',
+      '--push',
+      'origin',
+      'git@github.com:user/repo.git',
+    ])
     expect(mockGitInstance.fetch).toHaveBeenCalled()
   })
 })
