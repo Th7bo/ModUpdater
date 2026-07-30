@@ -244,6 +244,40 @@ describe('triggerBuild', () => {
     expect(mockSendSuccessNotification).not.toHaveBeenCalled()
   })
 
+  it('deduplicates concurrent triggers for the same repository HEAD', async () => {
+    mockGetRepo.mockResolvedValue({
+      ...baseRepo,
+      notifyOnBuildStart: true,
+    })
+    let finishBuild!: (result: { success: boolean; logTail: string; durationMs: number }) => void
+    mockRunBuild.mockImplementation(() => new Promise((resolve) => {
+      finishBuild = resolve
+    }))
+
+    const firstTrigger = triggerBuild('test-repo-id', 'sync')
+
+    await vi.waitFor(() => {
+      expect(mockRunBuild).toHaveBeenCalledTimes(1)
+    })
+
+    const duplicateTrigger = triggerBuild('test-repo-id', 'poll')
+    await duplicateTrigger
+
+    expect(mockRunBuild).toHaveBeenCalledTimes(1)
+    expect(mockSendBuildStartedNotification).toHaveBeenCalledTimes(1)
+
+    finishBuild({
+      success: true,
+      logTail: 'BUILD SUCCESSFUL',
+      durationMs: 5000,
+    })
+    await firstTrigger
+
+    expect(mockRunBuild).toHaveBeenCalledTimes(1)
+    expect(mockSendBuildStartedNotification).toHaveBeenCalledTimes(1)
+    expect(mockSendSuccessNotification).toHaveBeenCalledTimes(1)
+  })
+
   it('build failure: calls sendFailureNotification and persists failed status', async () => {
     mockRunBuild.mockResolvedValue({ success: false, logTail: 'BUILD FAILED', durationMs: 3000 })
 
