@@ -33,6 +33,8 @@ export interface TriggerOptions {
   force?: boolean
 }
 
+const inFlightBuilds = new Set<string>()
+
 export async function triggerBuild(
   repoId: string,
   sourceOrOptions: TriggerSource | TriggerOptions = 'poll'
@@ -72,15 +74,27 @@ export async function triggerBuild(
     return
   }
 
-  const commits = repo.lastCommitHash
-    ? await getNewCommits(repoDir, repo.lastCommitHash, repo.branch)
-    : await getNewCommits(repoDir, '', repo.branch)
+  const buildKey = `${repo.id}:${headHash}`
+  if (inFlightBuilds.has(buildKey)) {
+    console.log(`[pipeline] Build already in flight for ${repo.name} at ${headHash}, skipping duplicate trigger`)
+    return
+  }
 
-  console.log(`[pipeline] ${commits.length} new commit(s) for ${repo.name}${force ? ' (forced)' : ''}`)
+  inFlightBuilds.add(buildKey)
 
-  await enqueueBuild(async () => {
-    await executeBuild(repo.id, repoDir, commits, source)
-  })
+  try {
+    const commits = repo.lastCommitHash
+      ? await getNewCommits(repoDir, repo.lastCommitHash, repo.branch)
+      : await getNewCommits(repoDir, '', repo.branch)
+
+    console.log(`[pipeline] ${commits.length} new commit(s) for ${repo.name}${force ? ' (forced)' : ''}`)
+
+    await enqueueBuild(async () => {
+      await executeBuild(repo.id, repoDir, commits, source)
+    })
+  } finally {
+    inFlightBuilds.delete(buildKey)
+  }
 }
 
 async function executeBuild(
