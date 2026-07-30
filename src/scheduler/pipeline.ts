@@ -3,7 +3,8 @@ import { mkdir } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 
 import { parseConfig } from '@/src/config/env'
-import { db } from '@/src/db/client'
+import { db, pool } from '@/src/db/client'
+import { tryAcquireBuildLock, type ReleaseBuildLock } from '@/src/db/build-lock'
 import { getRepo, updateRepo } from '@/src/db/queries/repos'
 import { createBuildRun } from '@/src/db/queries/build-runs'
 import { ensureCloned, fetchLatest, getHeadHash, getNewCommits, type Commit } from '@/src/git/repo-sync'
@@ -81,8 +82,15 @@ export async function triggerBuild(
   }
 
   inFlightBuilds.add(buildKey)
+  let releaseBuildLock: ReleaseBuildLock | null = null
 
   try {
+    releaseBuildLock = await tryAcquireBuildLock(pool, buildKey)
+    if (!releaseBuildLock) {
+      console.log(`[pipeline] Build claimed by another process for ${repo.name} at ${headHash}, skipping duplicate trigger`)
+      return
+    }
+
     const commits = repo.lastCommitHash
       ? await getNewCommits(repoDir, repo.lastCommitHash, repo.branch)
       : await getNewCommits(repoDir, '', repo.branch)
@@ -93,6 +101,9 @@ export async function triggerBuild(
       await executeBuild(repo.id, repoDir, commits, source)
     })
   } finally {
+    if (releaseBuildLock) {
+      await releaseBuildLock()
+    }
     inFlightBuilds.delete(buildKey)
   }
 }

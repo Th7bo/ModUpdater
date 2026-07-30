@@ -4,6 +4,7 @@ const mockGetRepo = vi.fn()
 const mockUpdateRepo = vi.fn()
 const mockCreateBuildRun = vi.fn()
 const mockListBuildRuns = vi.fn()
+const mockTryAcquireBuildLock = vi.fn()
 const mockEnsureCloned = vi.fn()
 const mockFetchLatest = vi.fn()
 const mockGetHeadHash = vi.fn()
@@ -39,6 +40,10 @@ vi.mock('@/src/logging/activity-log', () => ({
 
 vi.mock('@/src/db/client', () => ({
   db: {},
+  pool: {},
+}))
+vi.mock('@/src/db/build-lock', () => ({
+  tryAcquireBuildLock: (...args: unknown[]) => mockTryAcquireBuildLock(...args),
 }))
 
 vi.mock('@/src/db/queries/repos', () => ({
@@ -134,6 +139,7 @@ describe('triggerBuild', () => {
     mockSendFailureNotification.mockResolvedValue(undefined)
     mockCreateBuildRun.mockResolvedValue({})
     mockListBuildRuns.mockResolvedValue([])
+    mockTryAcquireBuildLock.mockResolvedValue(vi.fn().mockResolvedValue(undefined))
     mockUpdateRepo.mockResolvedValue({})
   })
 
@@ -276,6 +282,17 @@ describe('triggerBuild', () => {
     expect(mockRunBuild).toHaveBeenCalledTimes(1)
     expect(mockSendBuildStartedNotification).toHaveBeenCalledTimes(1)
     expect(mockSendSuccessNotification).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips a duplicate claimed by another server process', async () => {
+    mockTryAcquireBuildLock.mockResolvedValue(null)
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockTryAcquireBuildLock).toHaveBeenCalledWith({}, 'test-repo-id:new-hash')
+    expect(mockRunBuild).not.toHaveBeenCalled()
+    expect(mockSendBuildStartedNotification).not.toHaveBeenCalled()
+    expect(mockSendSuccessNotification).not.toHaveBeenCalled()
   })
 
   it('build failure: calls sendFailureNotification and persists failed status', async () => {
