@@ -12,6 +12,7 @@ const mockGitInstance = {
   status: vi.fn(),
   reset: vi.fn(),
   push: vi.fn(),
+  listRemote: vi.fn(),
   env: vi.fn().mockReturnThis(),
 }
 
@@ -209,10 +210,37 @@ describe('upstream-sync', () => {
   })
 
   describe('pushToOrigin', () => {
-    it('pushes branch to origin', async () => {
-      await pushToOrigin('/repo', 'main')
+    it('pushes HEAD to the configured fork URL and verifies the remote SHA', async () => {
+      mockGitInstance.revparse.mockResolvedValue('abc123\n')
+      mockGitInstance.listRemote.mockResolvedValue('abc123\trefs/heads/main\n')
 
-      expect(mockGitInstance.push).toHaveBeenCalledWith('origin', 'main')
+      const hash = await pushToOrigin(
+        '/repo',
+        'git@github.com:user/fork.git',
+        'main',
+        '/keys/repo.pem'
+      )
+
+      expect(mockGitInstance.push).toHaveBeenCalledWith(
+        'git@github.com:user/fork.git',
+        'HEAD:refs/heads/main'
+      )
+      expect(mockGitInstance.listRemote).toHaveBeenCalledWith([
+        'git@github.com:user/fork.git',
+        'refs/heads/main',
+      ])
+      expect(hash).toBe('abc123')
+    })
+
+    it('fails when the configured fork does not contain the pushed SHA', async () => {
+      mockGitInstance.revparse.mockResolvedValue('local123\n')
+      mockGitInstance.listRemote.mockResolvedValue('remote456\trefs/heads/main\n')
+
+      await expect(pushToOrigin(
+        '/repo',
+        'git@github.com:user/fork.git',
+        'main'
+      )).rejects.toThrow('Push verification failed')
     })
   })
 })

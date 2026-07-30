@@ -127,9 +127,14 @@ export async function syncForkUpstream(repoId: string): Promise<void> {
     }
 
     await appendLog(logHandle!, 'Merge successful, pushing to origin...')
-    await pushToOrigin(repoDir, repo.branch, repo.sshPrivateKeyPath ?? undefined)
+    const pushedHash = await pushToOrigin(
+      repoDir,
+      repo.gitUrl,
+      repo.branch,
+      repo.sshPrivateKeyPath ?? undefined
+    )
 
-    await appendLog(logHandle!, 'Push successful, triggering build...')
+    await appendLog(logHandle!, `Push verified at ${pushedHash}, triggering build...`)
     if (logHandle) await finalizeLog(logHandle)
 
     debounce(`repo:${repo.id}`, () => triggerBuild(repo.id, 'sync'))

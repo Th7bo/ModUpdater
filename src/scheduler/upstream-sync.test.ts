@@ -14,6 +14,7 @@ const mockFetchLatest = vi.fn()
 const mockAppendLog = vi.fn()
 const mockFinalizeLog = vi.fn()
 const mockSendConflictNotification = vi.fn()
+const mockDebounce = vi.fn()
 
 vi.mock('@/src/config/env', () => ({
   parseConfig: vi.fn(() => ({ REPOS_DIR: '/data/repos' })),
@@ -46,7 +47,9 @@ vi.mock('@/src/discord/notifications', () => ({
   sendConflictNotification: (...args: unknown[]) => mockSendConflictNotification(...args),
 }))
 vi.mock('./pipeline', () => ({ triggerBuild: vi.fn() }))
-vi.mock('./debouncer', () => ({ debounce: vi.fn() }))
+vi.mock('./debouncer', () => ({
+  debounce: (...args: unknown[]) => mockDebounce(...args),
+}))
 vi.mock('node:fs/promises', () => ({ mkdir: vi.fn() }))
 
 import { syncForkUpstream } from './upstream-sync'
@@ -63,7 +66,7 @@ const repo = {
   discordChannelId: 'channel-id',
 }
 
-describe('syncForkUpstream merge failures', () => {
+describe('syncForkUpstream', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetRepo.mockResolvedValue(repo)
@@ -116,5 +119,48 @@ describe('syncForkUpstream merge failures', () => {
       '1adc3fe',
       ['src/conflicted.kt']
     )
+  })
+
+  it('pushes to the configured fork URL and triggers a build only after verification', async () => {
+    mockAttemptMerge.mockResolvedValue({
+      success: true,
+      conflicting: false,
+    })
+    mockPushToOrigin.mockResolvedValue('merged123')
+
+    await syncForkUpstream(repo.id)
+
+    expect(mockPushToOrigin).toHaveBeenCalledWith(
+      '/data/repos/repo-id',
+      repo.gitUrl,
+      repo.branch,
+      repo.sshPrivateKeyPath
+    )
+    expect(mockAppendLog).toHaveBeenCalledWith(
+      expect.anything(),
+      'Push verified at merged123, triggering build...'
+    )
+    expect(mockDebounce).toHaveBeenCalledWith(
+      `repo:${repo.id}`,
+      expect.any(Function)
+    )
+  })
+
+  it('does not trigger a build when the push cannot be verified', async () => {
+    mockAttemptMerge.mockResolvedValue({
+      success: true,
+      conflicting: false,
+    })
+    mockPushToOrigin.mockRejectedValue(new Error('Push verification failed'))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await syncForkUpstream(repo.id)
+
+    expect(mockDebounce).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith(
+      '[upstream-sync] Error syncing SkyHanni:',
+      expect.objectContaining({ message: 'Push verification failed' })
+    )
+    consoleError.mockRestore()
   })
 })
