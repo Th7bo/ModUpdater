@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+#
+# ModUpdater bootstrap.
+#
+#   curl -fsSL https://mod.th7bo.dev/install | bash
+#
+# Downloads the latest installer package and runs it. Kept separate from the
+# installer itself because a script piped into bash has no path of its own, so
+# it cannot find the JAR shipped alongside it.
+
+set -euo pipefail
+
+RELEASE_URL="${MODUPDATER_RELEASE_URL:-https://github.com/Th7bo/modupdater-cli/releases/latest/download/modupdater-installer.zip}"
+PKG_DIR="${MODUPDATER_PKG_DIR:-$HOME/.local/share/modupdater/pkg}"
+
+bold() { printf '\033[1m%s\033[0m\n' "$1"; }
+die()  { printf '\033[31m%s\033[0m\n' "$1" >&2; exit 1; }
+
+echo
+bold "ModUpdater"
+echo
+
+command -v java >/dev/null 2>&1 || die "Java is not installed. Install Java 21 or newer, then run this again."
+
+if command -v curl >/dev/null 2>&1; then
+    fetch() { curl -fsSL "$1" -o "$2"; }
+elif command -v wget >/dev/null 2>&1; then
+    fetch() { wget -qO "$2" "$1"; }
+else
+    die "Neither curl nor wget is available."
+fi
+
+command -v unzip >/dev/null 2>&1 || die "unzip is not installed."
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+echo "Downloading the latest version..."
+fetch "$RELEASE_URL" "$tmp/installer.zip" || die "Could not download the installer from $RELEASE_URL"
+
+# Replace the previous copy rather than unzipping over it, so files removed in a
+# later version don't linger and get picked up.
+rm -rf "$PKG_DIR"
+mkdir -p "$PKG_DIR"
+unzip -q "$tmp/installer.zip" -d "$PKG_DIR" || die "The downloaded file was not a valid zip."
+
+chmod +x "$PKG_DIR"/*.sh 2>/dev/null || true
+
+[ -f "$PKG_DIR/install.sh" ] || die "The package is missing install.sh — please report this."
+
+echo
+exec "$PKG_DIR/install.sh"

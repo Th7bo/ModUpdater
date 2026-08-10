@@ -11,6 +11,7 @@ const publicRoutes = [
   '/api/artifacts', // Artifact downloads are public (accessed via Discord)
   '/api/manifest',  // Client updater manifest — guarded by its own bearer token (§12.4)
   '/api/health',    // Health check for monitoring
+  '/install',       // Bootstrap scripts (covers /install and /install.ps1)
   '/login',
 ]
 
