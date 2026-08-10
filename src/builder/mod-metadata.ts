@@ -5,6 +5,9 @@ import { open as openZip, type Entry, type ZipFile } from 'yauzl'
 const MOD_JSON_ENTRY = 'fabric.mod.json'
 const EXACT_VERSION = /^\d+\.\d+(\.\d+)?$/
 const LEADING_OPERATOR = /^[>=<~^\s]+/
+const WILDCARD_SUFFIX = /\.[x*]$/i
+/** `~1.21` / `^1.21` / `1.21.x` all mean "this line, any patch release". */
+const PREFIX_CONSTRAINT = /^[~^]/
 
 export interface ModMetadata {
   modId: string
@@ -34,13 +37,74 @@ export function normalizeMcVersions(raw: unknown): string[] {
     // answer, so we decline rather than pick a bound that may be exclusive.
     if (trimmed === '' || /\s/.test(trimmed) || trimmed.includes('||')) continue
 
-    const stripped = trimmed.replace(LEADING_OPERATOR, '')
+    // "1.21.x" carries the same meaning as "~1.21": the base is 1.21, and which
+    // patch releases exist is decided by mcMatchMode, not by enumerating them.
+    const stripped = trimmed.replace(LEADING_OPERATOR, '').replace(WILDCARD_SUFFIX, '')
     if (EXACT_VERSION.test(stripped) && !versions.includes(stripped)) {
       versions.push(stripped)
     }
   }
 
   return versions
+}
+
+export type McMatchMode = 'exact' | 'prefix'
+
+/**
+ * How the recorded versions should be compared against an instance's Minecraft
+ * version (REQUIREMENTS §12.1).
+ *
+ * A tilde/caret range or an `.x` wildcard covers every patch release on that
+ * line, so `~26.1` has to match an instance running 26.1.2. Enumerating those
+ * patch versions is impossible — they get released later — so the manifest
+ * publishes the base version plus the rule for comparing it.
+ *
+ * Anything else stays exact. A lower bound like ">=1.21.4" deliberately does
+ * not become a prefix: it says nothing about 1.22, and offering an incompatible
+ * JAR is worse than missing an update.
+ */
+export function mcMatchMode(raw: string | null | undefined): McMatchMode {
+  if (!raw) return 'exact'
+
+  const candidates: string[] = []
+  const trimmed = raw.trim()
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed: unknown = JSON.parse(trimmed)
+      if (Array.isArray(parsed)) {
+        candidates.push(...parsed.filter((v): v is string => typeof v === 'string'))
+      }
+    } catch {
+      candidates.push(trimmed)
+    }
+  } else {
+    candidates.push(trimmed)
+  }
+
+  // One prefix constraint in the set widens the whole artifact: the versions
+  // list is shared, and a narrower reading would drop a compatible build.
+  return candidates.some(
+    (candidate) =>
+      PREFIX_CONSTRAINT.test(candidate.trim()) || WILDCARD_SUFFIX.test(candidate.trim())
+  )
+    ? 'prefix'
+    : 'exact'
+}
+
+/** Whether an artifact declaring these versions runs on `target`. */
+export function mcVersionMatches(
+  mcVersions: string[],
+  raw: string | null | undefined,
+  target: string
+): boolean {
+  if (!target) return false
+
+  if (mcMatchMode(raw) === 'prefix') {
+    return mcVersions.some((version) => target === version || target.startsWith(`${version}.`))
+  }
+
+  return mcVersions.includes(target)
 }
 
 function rawMinecraftConstraint(depends: unknown): string | null {

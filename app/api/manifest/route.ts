@@ -4,12 +4,15 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { parseConfig } from '@/src/config/env'
 import { db } from '@/src/db/client'
 import { listLatestArtifactsByModId, type ManifestArtifact } from '@/src/db/queries/artifacts'
+import { mcMatchMode, mcVersionMatches, type McMatchMode } from '@/src/builder/mod-metadata'
 
 interface ManifestVersion {
   modVersion: string | null
   loader: string
   mcVersions: string[]
   mcVersionsRaw: string | null
+  /** How a client should compare mcVersions against its instance (§12.1). */
+  mcVersionMatch: McMatchMode
   filename: string
   sha256: string
   size: number
@@ -88,6 +91,7 @@ function toManifest(rows: ManifestArtifact[], baseUrl: string): ManifestMod[] {
       loader: row.loader,
       mcVersions: row.mcVersions,
       mcVersionsRaw: row.mcVersionsRaw,
+      mcVersionMatch: mcMatchMode(row.mcVersionsRaw),
       filename: row.filename,
       sha256: row.sha256,
       size: row.size,
@@ -117,7 +121,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const rows = await listLatestArtifactsByModId(db)
 
   const mcFilter = request.nextUrl.searchParams.get('mc')
-  const filtered = mcFilter ? rows.filter((row) => row.mcVersions.includes(mcFilter)) : rows
+  const filtered = mcFilter
+    ? rows.filter((row) => mcVersionMatches(row.mcVersions, row.mcVersionsRaw, mcFilter))
+    : rows
 
   return NextResponse.json({
     generatedAt: new Date().toISOString(),

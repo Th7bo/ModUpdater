@@ -243,4 +243,38 @@ describe('GET /api/manifest — mc filter (§12.3)', () => {
 
     expect(body.mods[0].versions).toHaveLength(2)
   })
+
+  it('matches a patch release against a tilde range (§12.1)', async () => {
+    // SkyHanni declares ~26.1; an instance on 26.1.2 must still be offered it.
+    mockListLatestArtifactsByModId.mockResolvedValue([
+      { ...row, mcVersions: ['26.1'], mcVersionsRaw: '~26.1' },
+    ])
+
+    const body = await (await GET(authed('?mc=26.1.2'))).json()
+
+    expect(body.mods).toHaveLength(1)
+    expect(body.mods[0].versions[0].mcVersionMatch).toBe('prefix')
+  })
+
+  it('does not let a tilde range leak into the next line', async () => {
+    mockListLatestArtifactsByModId.mockResolvedValue([
+      { ...row, mcVersions: ['26.1'], mcVersionsRaw: '~26.1' },
+    ])
+
+    expect((await (await GET(authed('?mc=26.2'))).json()).mods).toEqual([])
+  })
+
+  it('still requires equality for an exact constraint', async () => {
+    mockListLatestArtifactsByModId.mockResolvedValue([
+      { ...row, mcVersions: ['1.21.4'], mcVersionsRaw: '1.21.4' },
+    ])
+
+    expect((await (await GET(authed('?mc=1.21.5'))).json()).mods).toEqual([])
+  })
+
+  it('tells the client how to compare versions', async () => {
+    const body = await (await GET(authed())).json()
+
+    expect(body.mods[0].versions[0].mcVersionMatch).toBe('exact')
+  })
 })

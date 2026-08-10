@@ -4,7 +4,13 @@ import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { readModMetadata, normalizeMcVersions, hashFile } from './mod-metadata'
+import {
+  readModMetadata,
+  normalizeMcVersions,
+  hashFile,
+  mcMatchMode,
+  mcVersionMatches,
+} from './mod-metadata'
 
 // ─── Minimal STORED-method ZIP writer ───────────────────────────────────────
 // Node has no ZIP writer and yauzl only reads, so fixtures are built here.
@@ -178,13 +184,23 @@ describe('readModMetadata', () => {
     })
   })
 
-  it('preserves the raw constraint when it cannot be normalized', async () => {
+  it('resolves a wildcard to its base version and keeps the raw constraint', async () => {
     const jar = await writeJar('wildcard.jar', [
       modJson({ depends: { minecraft: '1.21.x' } }),
     ])
     const meta = await readModMetadata(jar)
 
     expect(meta?.mcVersionsRaw).toBe('1.21.x')
+    expect(meta?.mcVersions).toEqual(['1.21'])
+  })
+
+  it('preserves the raw constraint when it cannot be normalized', async () => {
+    const jar = await writeJar('unparseable.jar', [
+      modJson({ depends: { minecraft: 'latest' } }),
+    ])
+    const meta = await readModMetadata(jar)
+
+    expect(meta?.mcVersionsRaw).toBe('latest')
     expect(meta?.mcVersions).toEqual([])
   })
 
@@ -220,10 +236,12 @@ describe('normalizeMcVersions', () => {
     expect(normalizeMcVersions('1.21 || 1.20')).toEqual([])
   })
 
-  it('declines wildcards and unparseable input', () => {
-    expect(normalizeMcVersions('1.21.x')).toEqual([])
+  it('declines unparseable input', () => {
+    // "1.21.x" is handled: it resolves to base 1.21 with prefix matching, see
+    // normalizeMcVersions with wildcards below.
     expect(normalizeMcVersions('*')).toEqual([])
     expect(normalizeMcVersions('')).toEqual([])
+    expect(normalizeMcVersions('latest')).toEqual([])
   })
 
   it('ignores non-string input', () => {
@@ -248,5 +266,77 @@ describe('hashFile', () => {
 
   it('rejects for a nonexistent file', async () => {
     await expect(hashFile(join(dir, 'missing.bin'))).rejects.toThrow()
+  })
+})
+
+// ─── Minecraft version matching (§12.1) ─────────────────────────────────────
+
+describe('mcMatchMode', () => {
+  it('treats tilde and caret ranges as covering a whole line', () => {
+    expect(mcMatchMode('~26.1')).toBe('prefix')
+    expect(mcMatchMode('^1.21')).toBe('prefix')
+  })
+
+  it('treats an .x wildcard as covering a whole line', () => {
+    expect(mcMatchMode('1.21.x')).toBe('prefix')
+    expect(mcMatchMode('1.21.*')).toBe('prefix')
+  })
+
+  it('keeps plain and lower-bound constraints exact', () => {
+    expect(mcMatchMode('1.21.4')).toBe('exact')
+    // ">=1.21.4" says nothing about 1.22, so widening it would offer JARs that
+    // may not run.
+    expect(mcMatchMode('>=1.21.4')).toBe('exact')
+  })
+
+  it('widens when any element of an array is a range', () => {
+    expect(mcMatchMode(JSON.stringify(['1.21.4', '~1.20']))).toBe('prefix')
+    expect(mcMatchMode(JSON.stringify(['1.21.4', '1.21.5']))).toBe('exact')
+  })
+
+  it('defaults to exact for missing or unparseable input', () => {
+    expect(mcMatchMode(null)).toBe('exact')
+    expect(mcMatchMode(undefined)).toBe('exact')
+    expect(mcMatchMode('')).toBe('exact')
+    expect(mcMatchMode('[broken')).toBe('exact')
+  })
+})
+
+describe('mcVersionMatches', () => {
+  it('matches a patch release against a tilde range', () => {
+    // The real case this was written for: SkyHanni declares ~26.1 and the
+    // instance runs 26.1.2.
+    expect(mcVersionMatches(['26.1'], '~26.1', '26.1.2')).toBe(true)
+    expect(mcVersionMatches(['26.1'], '~26.1', '26.1')).toBe(true)
+  })
+
+  it('does not let a prefix leak into a neighbouring line', () => {
+    expect(mcVersionMatches(['26.1'], '~26.1', '26.2')).toBe(false)
+    expect(mcVersionMatches(['1.21'], '~1.21', '1.211')).toBe(false)
+  })
+
+  it('requires equality for exact constraints', () => {
+    expect(mcVersionMatches(['1.21.4'], '1.21.4', '1.21.4')).toBe(true)
+    expect(mcVersionMatches(['1.21.4'], '1.21.4', '1.21.5')).toBe(false)
+  })
+
+  it('matches any listed version', () => {
+    expect(mcVersionMatches(['1.21.4', '1.21.5'], JSON.stringify(['1.21.4', '1.21.5']), '1.21.5')).toBe(true)
+  })
+
+  it('never matches when compatibility is unknown', () => {
+    expect(mcVersionMatches([], null, '1.21.4')).toBe(false)
+    expect(mcVersionMatches([], '~26.1', '26.1.2')).toBe(false)
+  })
+
+  it('never matches a blank target', () => {
+    expect(mcVersionMatches(['1.21.4'], '1.21.4', '')).toBe(false)
+  })
+})
+
+describe('normalizeMcVersions with wildcards', () => {
+  it('resolves an .x wildcard to its base version', () => {
+    expect(normalizeMcVersions('1.21.x')).toEqual(['1.21'])
+    expect(normalizeMcVersions('~26.1')).toEqual(['26.1'])
   })
 })
