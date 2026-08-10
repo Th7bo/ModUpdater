@@ -46,6 +46,10 @@ ENV JAVA_HOME_21=/usr/lib/jvm/java-21-openjdk \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Static assets. `output: 'standalone'` does not bundle public/, so without this
+# every file in it 404s — including the /install bootstrap scripts.
+COPY --from=builder /app/public ./public
+
 # Copy files needed for drizzle-kit push
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/drizzle.config.ts ./
