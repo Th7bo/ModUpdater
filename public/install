@@ -49,4 +49,17 @@ chmod +x "$PKG_DIR"/*.sh 2>/dev/null || true
 [ -f "$PKG_DIR/install.sh" ] || die "The package is missing install.sh — please report this."
 
 echo
-exec "$PKG_DIR/install.sh"
+
+# Piped into bash, this script *is* stdin, so the installer's prompts would read
+# EOF and every answer would come back empty. Hand it the terminal instead.
+if [ -t 0 ]; then
+    exec "$PKG_DIR/install.sh"
+elif (exec < /dev/tty) 2>/dev/null; then
+    # Note the open test above: /dev/tty can pass a -r check on permissions and
+    # still fail to open when the process has no controlling terminal.
+    exec "$PKG_DIR/install.sh" < /dev/tty
+else
+    die "No terminal is available to ask you questions.
+Download the installer and run it directly instead:
+  https://github.com/Th7bo/modupdater-cli/releases/latest"
+fi
