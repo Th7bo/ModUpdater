@@ -9,6 +9,7 @@ const publicRoutes = [
   '/api/auth',
   '/api/webhooks',
   '/api/artifacts', // Artifact downloads are public (accessed via Discord)
+  '/api/manifest',  // Client updater manifest — guarded by its own bearer token (§12.4)
   '/api/health',    // Health check for monitoring
   '/login',
 ]

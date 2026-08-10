@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer, timestamp, uuid, primaryKey } from 'drizzle-orm/pg-core'
+import { pgTable, text, boolean, integer, timestamp, uuid, primaryKey, index } from 'drizzle-orm/pg-core'
 import type { AdapterAccountType } from 'next-auth/adapters'
 
 export const repos = pgTable('repos', {
@@ -97,3 +97,36 @@ export const buildRuns = pgTable('build_runs', {
   startedAt: timestamp('started_at').notNull(),
   finishedAt: timestamp('finished_at'),
 })
+
+/**
+ * Per-artifact metadata for the client manifest (REQUIREMENTS §12.2).
+ *
+ * Deliberately separate from `build_runs.artifact_paths_json`, which stays as
+ * it is because Discord delivery (§6) reads it.
+ *
+ * Mod metadata columns are nullable: a JAR with no readable `fabric.mod.json`
+ * is still a valid build artifact, it just can't be served to clients.
+ */
+export const artifacts = pgTable(
+  'artifacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    buildId: uuid('build_id')
+      .notNull()
+      .references(() => buildRuns.id, { onDelete: 'cascade' }),
+    repoId: uuid('repo_id')
+      .notNull()
+      .references(() => repos.id, { onDelete: 'cascade' }),
+    filename: text('filename').notNull(),
+    size: integer('size').notNull(),
+    sha256: text('sha256').notNull(),
+    modId: text('mod_id'),
+    modVersion: text('mod_version'),
+    displayName: text('display_name'),
+    loader: text('loader').notNull().default('fabric'),
+    mcVersionsJson: text('mc_versions_json').notNull().default('[]'),
+    mcVersionsRaw: text('mc_versions_raw'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('artifacts_mod_id_idx').on(t.modId)]
+)

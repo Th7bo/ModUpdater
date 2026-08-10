@@ -36,6 +36,13 @@
       "when": 1785353058447,
       "tag": "0004_thin_frank_castle",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786394049532,
+      "tag": "0005_add_artifacts",
+      "breakpoints": true
     }
   ]
 }

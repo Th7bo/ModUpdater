@@ -15,6 +15,8 @@ const mockRunBuild = vi.fn()
 const mockCollectArtifacts = vi.fn()
 const mockFilterDismissedArtifacts = vi.fn((paths: string[], _patterns?: string) => paths)
 const mockStoreArtifacts = vi.fn()
+const mockDescribeArtifacts = vi.fn()
+const mockInsertArtifacts = vi.fn()
 const mockSendBuildStartedNotification = vi.fn()
 const mockSendSuccessNotification = vi.fn()
 const mockSendFailureNotification = vi.fn()
@@ -78,6 +80,11 @@ vi.mock('@/src/builder/artifacts', () => ({
   filterDismissedArtifacts: (paths: string[], patterns: string) =>
     mockFilterDismissedArtifacts(paths, patterns),
   storeArtifacts: (...args: unknown[]) => mockStoreArtifacts(...args),
+  describeArtifacts: (...args: unknown[]) => mockDescribeArtifacts(...args),
+}))
+
+vi.mock('@/src/db/queries/artifacts', () => ({
+  insertArtifacts: (...args: unknown[]) => mockInsertArtifacts(...args),
 }))
 
 vi.mock('@/src/discord/notifications', () => ({
@@ -122,6 +129,20 @@ const mockStoredArtifacts = [
   { filename: 'mod.jar', path: '/data/artifacts/build-123/mod.jar', size: 1000 },
 ]
 
+const mockDescribedArtifacts = [
+  {
+    ...mockStoredArtifacts[0],
+    sha256: 'b'.repeat(64),
+    metadata: {
+      modId: 'testmod',
+      modVersion: '1.2.3',
+      displayName: 'Test Mod',
+      mcVersionsRaw: '1.21.4',
+      mcVersions: ['1.21.4'],
+    },
+  },
+]
+
 describe('triggerBuild', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -141,6 +162,87 @@ describe('triggerBuild', () => {
     mockListBuildRuns.mockResolvedValue([])
     mockTryAcquireBuildLock.mockResolvedValue(vi.fn().mockResolvedValue(undefined))
     mockUpdateRepo.mockResolvedValue({})
+    mockDescribeArtifacts.mockResolvedValue(mockDescribedArtifacts)
+    mockInsertArtifacts.mockResolvedValue([])
+  })
+
+  it('records artifact metadata for the client manifest (§12.1)', async () => {
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockDescribeArtifacts).toHaveBeenCalledWith(mockStoredArtifacts)
+    expect(mockInsertArtifacts).toHaveBeenCalledWith(
+      expect.anything(),
+      [
+        expect.objectContaining({
+          repoId: 'test-repo-id',
+          filename: 'mod.jar',
+          size: 1000,
+          sha256: 'b'.repeat(64),
+          modId: 'testmod',
+          modVersion: '1.2.3',
+          displayName: 'Test Mod',
+          mcVersionsJson: JSON.stringify(['1.21.4']),
+          mcVersionsRaw: '1.21.4',
+        }),
+      ]
+    )
+  })
+
+  it('records null metadata for a JAR with no readable fabric.mod.json', async () => {
+    mockDescribeArtifacts.mockResolvedValue([
+      { ...mockStoredArtifacts[0], sha256: 'c'.repeat(64), metadata: null },
+    ])
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockInsertArtifacts).toHaveBeenCalledWith(
+      expect.anything(),
+      [
+        expect.objectContaining({
+          sha256: 'c'.repeat(64),
+          modId: null,
+          modVersion: null,
+          displayName: null,
+          mcVersionsJson: '[]',
+          mcVersionsRaw: null,
+        }),
+      ]
+    )
+  })
+
+  it('still completes the build when metadata recording fails (§12.1)', async () => {
+    mockInsertArtifacts.mockRejectedValue(new Error('database is down'))
+
+    await expect(triggerBuild('test-repo-id', 'poll')).resolves.toBeUndefined()
+
+    expect(mockCreateBuildRun).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'success' })
+    )
+    expect(mockUpdateRepo).toHaveBeenCalledWith(
+      expect.anything(),
+      'test-repo-id',
+      expect.objectContaining({ lastBuildStatus: 'success' })
+    )
+  })
+
+  it('does not record metadata for a failed build', async () => {
+    mockRunBuild.mockResolvedValue({ success: false, logTail: 'BUILD FAILED', durationMs: 100 })
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockDescribeArtifacts).not.toHaveBeenCalled()
+    expect(mockInsertArtifacts).not.toHaveBeenCalled()
+  })
+
+  it('does not record metadata for artifacts dismissed by pattern', async () => {
+    mockFilterDismissedArtifacts.mockImplementation(() => [])
+    mockStoreArtifacts.mockResolvedValue([])
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockDescribeArtifacts).not.toHaveBeenCalled()
+    expect(mockInsertArtifacts).not.toHaveBeenCalled()
   })
 
   it('happy path (upstream): new commit → build → success notification → persist', async () => {

@@ -19,6 +19,15 @@ describe('parseConfig', () => {
     expect(typeof config.DEBOUNCE_MS).toBe('number')
   })
 
+  it('leaves CLIENT_API_TOKEN undefined when unset', () => {
+    expect(parseConfig(validEnv).CLIENT_API_TOKEN).toBeUndefined()
+  })
+
+  it('reads CLIENT_API_TOKEN when set', () => {
+    const config = parseConfig({ ...validEnv, CLIENT_API_TOKEN: 'a-client-token' })
+    expect(config.CLIENT_API_TOKEN).toBe('a-client-token')
+  })
+
   it('throws ZodError when DATABASE_URL is missing', () => {
     const { DATABASE_URL: _, ...env } = validEnv
     expect(() => parseConfig(env)).toThrow(ZodError)

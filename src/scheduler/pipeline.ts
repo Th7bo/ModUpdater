@@ -14,8 +14,10 @@ import {
   collectArtifacts,
   filterDismissedArtifacts,
   storeArtifacts,
+  describeArtifacts,
   cleanupOldArtifacts,
 } from '@/src/builder/artifacts'
+import { insertArtifacts } from '@/src/db/queries/artifacts'
 import { listBuildRuns } from '@/src/db/queries/build-runs'
 import {
   sendBuildStartedNotification,
@@ -230,6 +232,36 @@ async function executeBuild(
     startedAt,
     finishedAt,
   })
+
+  // Artifact metadata for the client manifest (§12.1). Must run after the build
+  // run row exists (artifacts.build_id references it), and must never be able to
+  // fail the build — the JARs are already delivered by this point.
+  //
+  // storedArtifacts has already had dismissed patterns filtered out, so
+  // dismissed JARs are correctly absent from the manifest too.
+  if (buildResult.success && storedArtifacts.length > 0) {
+    try {
+      const described = await describeArtifacts(storedArtifacts)
+      await insertArtifacts(
+        db,
+        described.map((artifact) => ({
+          buildId,
+          repoId: repo.id,
+          filename: artifact.filename,
+          size: artifact.size,
+          sha256: artifact.sha256,
+          modId: artifact.metadata?.modId ?? null,
+          modVersion: artifact.metadata?.modVersion ?? null,
+          displayName: artifact.metadata?.displayName ?? null,
+          mcVersionsJson: JSON.stringify(artifact.metadata?.mcVersions ?? []),
+          mcVersionsRaw: artifact.metadata?.mcVersionsRaw ?? null,
+        }))
+      )
+      console.log(`[pipeline] Recorded metadata for ${described.length} artifact(s)`)
+    } catch (err) {
+      console.error(`[pipeline] Failed to record artifact metadata for ${repo.name}:`, err)
+    }
+  }
 
   await updateRepo(db, repo.id, {
     lastCommitHash: headHash,

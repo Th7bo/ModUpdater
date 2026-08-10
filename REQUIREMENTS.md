@@ -213,4 +213,84 @@ Per repo, the UI exposes:
 - Multi-user access / role management.
 - Automatic resolution of rebase conflicts.
 - Publishing to Modrinth or CurseForge.
+
+---
+
+## 12. Client Update Delivery (v2)
+
+Discord delivery (§6) requires a human to download a JAR and drop it into their `mods/` folder. §12 adds a machine-readable path so a client-side updater can discover, download, and install builds automatically.
+
+The system has three components. **Only §12.1–§12.5 are built in this repository.** §12.6 describes the client contract so the external repos have a spec to build against.
+
+### 12.1 JAR Metadata Extraction
+
+Every collected artifact (§5.4) is a Fabric mod JAR containing a `fabric.mod.json` at its root. After a successful build, the platform reads that file from each JAR and records:
+
+- `id` → the Fabric mod id (the key a client uses to match an installed mod)
+- `version` → the mod's own version string
+- `name` → human-readable display name
+- `depends.minecraft` → the declared Minecraft version constraint
+
+The platform also computes the JAR's **SHA-256** and byte size.
+
+Rules:
+
+- Metadata extraction must **never fail a build**. A JAR with no `fabric.mod.json`, malformed JSON, or an unreadable archive is recorded with null metadata and excluded from the manifest.
+- `depends.minecraft` is normalized to an explicit list of MC versions. Normalization happens **once, server-side** — clients do exact string matching against the resulting list, they do not parse version ranges. If normalization yields an empty list, the artifact is served with an empty `mcVersions` array and clients must treat its compatibility as unknown.
+
+### 12.2 Artifact Records
+
+Per-artifact metadata is stored in its own table rather than the existing `build_runs.artifact_paths_json` blob, which remains in place unchanged for §6 Discord delivery.
+
+Each record holds: owning build, owning repo, filename, size, SHA-256, mod id, mod version, display name, loader, and normalized MC version list.
+
+### 12.3 Manifest Endpoint
+
+```
+GET /api/manifest
+Authorization: Bearer <CLIENT_API_TOKEN>
+```
+
+Returns the newest successful build's artifacts for every repo, grouped by mod id. Grouping by mod id (not by build) is required because a single Stonecutter build (§5.3) produces several JARs for different MC versions, and the client must pick the one matching its instance.
+
+Optional query parameters: `mc=<version>` filters to artifacts whose normalized `mcVersions` contains that exact version.
+
+Artifacts with no mod id are omitted — a client cannot match them to an installed mod.
+
+Each version entry includes the commit hash and summary that produced it, so a client can show the user *what changed* before they accept an update.
+
+Download URLs point at the existing artifact endpoint (§6.3) and are unchanged.
+
+### 12.4 Client Authentication
+
+- The manifest endpoint is authenticated with a single shared bearer token from `CLIENT_API_TOKEN`.
+- Comparison must be constant-time. A missing, malformed, or incorrect token returns `401` with no detail about which.
+- If `CLIENT_API_TOKEN` is unset, the endpoint returns `503` — it must never fall open.
+- **Artifact downloads (`/api/artifacts/...`) stay public**, because Discord embeds link to them directly and gating them would break §6. The manifest is the only thing being protected; it is what enumerates the repo list.
+- The manifest endpoint is rate limited on the same basis as §9.
+
+### 12.5 Non-Goals for the Platform Side
+
+The platform never pushes to clients, tracks which clients exist, or records what any client has installed. It serves a manifest and JARs; all update decisions live in the client.
+
+### 12.6 Client Contract (external repositories)
+
+Two clients consume the manifest. Both target **Prism Launcher** and **Modrinth App**, which expose pre-launch and post-exit hooks. The official Minecraft Launcher has no hook mechanism and is unsupported.
+
+**`modupdater-cli`** — plain Java, no Minecraft dependencies. Owns all file mutation.
+
+- `check` mode, wired to the launcher's **pre-launch** hook: fetch manifest, scan the instance's `mods/` directory, diff by mod id + SHA-256, present a Swing dialog of available updates with commit summaries, then download, verify, and install the selected ones. Nothing is loaded or locked at this point, so JARs are replaced directly.
+- `apply` mode, wired to the **post-exit** hook: headless. Applies any update requested during the session, then runs an optional user-configured relaunch command.
+- **Must exit 0 on every non-fatal path** — user skips, server unreachable, request times out, nothing to update. A non-zero exit from a pre-launch hook blocks the launch, which presents to the user as a broken launcher.
+- Replaced JARs are retained until the following launch confirms success. An unconfirmed launch restores them. This is not optional: the platform builds from upstream development commits, so a JAR that crashes on init is an ordinary outcome.
+- Relaunch is a user-supplied command string, not built-in launcher knowledge. Prism users can point it at the Prism CLI; Modrinth App has no equivalent, so they leave it blank and press Play.
+
+**`modupdater-mod`** — small optional Fabric mod, purely additive. Polls the manifest during play and offers to update on exit. It writes an update request and calls for a clean client shutdown. **It never modifies a JAR** — the post-exit CLI does, because by the time any in-game code runs the loader already holds every mod JAR open.
+
+### 12.7 Out of Scope (v2)
+
+- Updating mods the platform does not build (Modrinth/CurseForge sources).
+- Dependency resolution between mods.
+- Server-side tracking of client installs.
+- Support for launchers without pre-launch/post-exit hooks.
 - Containerised build isolation (Docker per build) — may be considered in a future version.

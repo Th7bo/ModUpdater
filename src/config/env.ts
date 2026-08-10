@@ -15,6 +15,9 @@ const envSchema = z.object({
   BASE_URL: z.string().default('http://localhost:3000'),
   DEFAULT_DISCORD_CHANNEL_ID: z.string().default(''),
   DEFAULT_POLLING_INTERVAL_MS: z.coerce.number().int().positive().default(900000),
+  // Bearer token for the client manifest endpoint (REQUIREMENTS §12.4).
+  // Optional: when unset, /api/manifest returns 503 rather than falling open.
+  CLIENT_API_TOKEN: z.string().optional(),
 })
 
 export type Config = z.infer<typeof envSchema>

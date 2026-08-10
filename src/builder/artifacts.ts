@@ -1,6 +1,8 @@
 import { readdir, stat, mkdir, copyFile, rm } from 'node:fs/promises'
 import { join, resolve, basename } from 'node:path'
 
+import { readModMetadata, hashFile, type ModMetadata } from './mod-metadata'
+
 const EXCLUDED_SUFFIXES = ['-sources.jar', '-dev.jar']
 const EXCLUDED_NAMES = ['buildSrc.jar', 'sharedVariables.jar']
 const EXCLUDED_PREFIXES = ['annotation-processors', 'detekt-']
@@ -152,6 +154,40 @@ export async function storeArtifacts(
   }
 
   return stored
+}
+
+export interface DescribedArtifact extends StoredArtifact {
+  sha256: string
+  metadata: ModMetadata | null
+}
+
+/**
+ * Adds SHA-256 and `fabric.mod.json` metadata to stored artifacts, for the
+ * client manifest (REQUIREMENTS §12.1).
+ *
+ * Deliberately separate from `storeArtifacts` so the Discord notification
+ * payload and `build_runs.artifact_paths_json` keep their existing shape.
+ *
+ * Failures are per-artifact and never propagate: an artifact whose hash can't
+ * be computed is dropped from the result (it can't form a valid record), and
+ * unreadable metadata is simply null. Neither may fail the build.
+ */
+export async function describeArtifacts(
+  stored: StoredArtifact[]
+): Promise<DescribedArtifact[]> {
+  const described: DescribedArtifact[] = []
+
+  for (const artifact of stored) {
+    try {
+      const sha256 = await hashFile(artifact.path)
+      const metadata = await readModMetadata(artifact.path)
+      described.push({ ...artifact, sha256, metadata })
+    } catch (err) {
+      console.error(`[artifacts] Failed to describe ${artifact.filename}:`, err)
+    }
+  }
+
+  return described
 }
 
 export async function cleanupOldArtifacts(
