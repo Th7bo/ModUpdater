@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash, timingSafeEqual } from 'node:crypto'
 
+import { isAuthorized } from '@/src/api/client-auth'
 import { parseConfig } from '@/src/config/env'
 import { db } from '@/src/db/client'
 import { listLatestArtifactsByModId, type ManifestArtifact } from '@/src/db/queries/artifacts'
@@ -31,21 +31,6 @@ interface ManifestMod {
   versions: ManifestVersion[]
 }
 
-/**
- * Constant-time bearer token check (REQUIREMENTS §12.4).
- *
- * Both sides are hashed first so the comparison operates on fixed-length
- * buffers — `timingSafeEqual` throws on a length mismatch, and guarding that
- * with a length check would leak the token's length.
- */
-function isAuthorized(header: string | null, expected: string): boolean {
-  if (!header?.startsWith('Bearer ')) return false
-
-  const provided = createHash('sha256').update(header.slice('Bearer '.length)).digest()
-  const target = createHash('sha256').update(expected).digest()
-
-  return timingSafeEqual(provided, target)
-}
 
 function newestCommit(commitsJson: string): { hash: string | null; summary: string | null } {
   try {
