@@ -54,6 +54,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/drizzle.config.ts ./
 COPY --from=builder /app/src/db ./src/db
+
+# Maintenance scripts. They have to run here rather than on a laptop: the
+# artifacts volume is only mounted inside this container, so running them
+# elsewhere finds the database but none of the JARs.
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/src/builder ./src/builder
+COPY --from=builder /app/src/config ./src/config
 COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000

@@ -72,8 +72,30 @@ async function resolveOnDisk(
   return null
 }
 
+/**
+ * Refuses to run somewhere the artifacts are not.
+ *
+ * Pointing DATABASE_URL at production from a laptop works, but ARTIFACTS_DIR is
+ * a path inside the container — so every JAR looks pruned and the run reports
+ * thousands "no longer on disk" while changing nothing. Saying so up front beats
+ * a confident summary of a no-op.
+ */
+async function assertArtifactsPresent(artifactsDir: string): Promise<void> {
+  const dirStat = await stat(artifactsDir).catch(() => null)
+
+  if (!dirStat?.isDirectory()) {
+    console.error(`[backfill] ARTIFACTS_DIR does not exist here: ${artifactsDir}`)
+    console.error('[backfill] This has to run where the artifacts volume is mounted, e.g.')
+    console.error('[backfill]   docker exec -it <container> pnpm backfill:artifacts')
+    process.exitCode = 1
+    throw new Error('artifacts directory not found')
+  }
+}
+
 async function main(): Promise<void> {
   const config = parseConfig()
+  await assertArtifactsPresent(config.ARTIFACTS_DIR)
+
   const pool = new Pool({ connectionString: config.DATABASE_URL })
   const db = drizzle(pool, { schema })
 
@@ -145,6 +167,13 @@ async function main(): Promise<void> {
       `[backfill] done — ${buildsProcessed} build(s) backfilled, ${buildsSkipped} skipped, ` +
         `${jarsInserted} artifact(s) inserted, ${jarsMissing} JAR(s) no longer on disk`
     )
+
+    if (jarsInserted === 0 && jarsMissing > 0) {
+      console.warn(
+        `[backfill] nothing was recorded and every JAR was missing from ${config.ARTIFACTS_DIR} — ` +
+          'if that path belongs to the container, run this inside it'
+      )
+    }
   } finally {
     await pool.end()
   }
