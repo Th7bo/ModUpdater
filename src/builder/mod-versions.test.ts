@@ -3,9 +3,9 @@ import { describe, it, expect } from 'vitest'
 import { compareModVersions } from './mod-versions'
 
 describe('compareModVersions', () => {
-  const older = (a: string, b: string) => expect(compareModVersions(a, b)).toBeLessThan(0)
-  const newer = (a: string, b: string) => expect(compareModVersions(a, b)).toBeGreaterThan(0)
-  const same = (a: string, b: string) => expect(compareModVersions(a, b)).toBe(0)
+  const older = (a: string | null, b: string | null) => expect(compareModVersions(a, b)).toBeLessThan(0)
+  const newer = (a: string | null, b: string | null) => expect(compareModVersions(a, b)).toBeGreaterThan(0)
+  const same = (a: string | null, b: string | null) => expect(compareModVersions(a, b)).toBe(0)
 
   it('orders patch releases', () => {
     // The case that offered a downgrade: both JARs came from one build because
