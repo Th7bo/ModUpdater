@@ -291,11 +291,24 @@ describe('mcMatchMode', () => {
     expect(mcMatchMode('1.21.*')).toBe('prefix')
   })
 
-  it('keeps plain and lower-bound constraints exact', () => {
+  it('keeps a plain version exact', () => {
     expect(mcMatchMode('1.21.4')).toBe('exact')
-    // ">=1.21.4" says nothing about 1.22, so widening it would offer JARs that
-    // may not run.
-    expect(mcMatchMode('>=1.21.4')).toBe('exact')
+    expect(mcMatchMode('26.1')).toBe('exact')
+  })
+
+  it('covers the line for an open lower bound', () => {
+    // ">=26.1" is how athen declares itself, and it runs on 26.1.2. Reading it
+    // as exact meant it could never be offered an update there.
+    expect(mcMatchMode('>=26.1')).toBe('prefix')
+    expect(mcMatchMode('> 26.1')).toBe('prefix')
+    expect(mcVersionMatches(['26.1'], '>=26.1', '26.1.2')).toBe(true)
+    expect(mcVersionMatches(['26.1'], '>=26.1', '26.2')).toBe(false)
+  })
+
+  it('keeps a bounded range exact, since its upper bound is meant', () => {
+    // ">=26.1.2 <26.2" deliberately excludes the next line; widening to the
+    // whole 26.1 line would also wrongly include 26.1.0 and 26.1.1.
+    expect(mcMatchMode('>=26.1.2 <26.2')).toBe('exact')
   })
 
   it('widens when any element of an array is a range', () => {

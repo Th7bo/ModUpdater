@@ -6,8 +6,16 @@ const MOD_JSON_ENTRY = 'fabric.mod.json'
 const EXACT_VERSION = /^\d+\.\d+(\.\d+)?$/
 const LEADING_OPERATOR = /^[>=<~^\s]+/
 const WILDCARD_SUFFIX = /\.[x*]$/i
-/** `~1.21` / `^1.21` / `1.21.x` all mean "this line, any patch release". */
-const PREFIX_CONSTRAINT = /^[~^]/
+/**
+ * Constraints that cover a whole Minecraft line rather than one release.
+ *
+ * `~1.21`, `^1.21` and `1.21.x` say so outright. An open lower bound like
+ * `>=26.1` means more than that — every later version — but reading it as exact
+ * left mods that are demonstrably running on 26.1.2 unable to be offered an
+ * update at all. Covering the line is the closest safe reading: it never offers
+ * a JAR for a different line, which is the failure that matters.
+ */
+const PREFIX_CONSTRAINT = /^(?:[~^]|>=?(?!.*<))/
 
 export interface ModMetadata {
   modId: string
