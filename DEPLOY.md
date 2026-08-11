@@ -175,6 +175,34 @@ For repos using webhook-based detection:
 
 ---
 
+## Maintenance commands
+
+These run **inside the app container**: the artifacts volume is only mounted
+there, so running them from a laptop finds the database but none of the JARs and
+silently does nothing.
+
+Find the container (note the name is `modupgrader-app-…`):
+
+```bash
+docker ps --format '{{.Names}}\t{{.Image}}' | grep -i modupgrader
+```
+
+Then, to record `fabric.mod.json` metadata and checksums for builds that predate
+the client manifest (§12) — needed before those mods can be offered to clients:
+
+```bash
+docker exec -it <container> ./node_modules/.bin/tsx scripts/backfill-artifacts.ts
+```
+
+It is safe to run repeatedly: builds that already have metadata are skipped.
+JARs pruned by the retention policy cannot be recovered and are reported as
+missing, which is expected for older builds.
+
+> `pnpm` is not in the runtime image, and would not help if it were: running a
+> script through it attempts a full `pnpm install` first and fails.
+
+---
+
 ## Troubleshooting
 
 ### Build fails with Java errors

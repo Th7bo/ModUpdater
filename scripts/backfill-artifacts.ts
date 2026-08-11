@@ -8,7 +8,11 @@
  * Safe to run repeatedly: builds that already have artifact rows are skipped,
  * and JARs already pruned by cleanupOldArtifacts are reported and ignored.
  *
- *   pnpm backfill:artifacts
+ *   pnpm backfill:artifacts                                   (locally)
+ *   ./node_modules/.bin/tsx scripts/backfill-artifacts.ts     (in the container)
+ *
+ * pnpm is not in the runtime image, and would not work there anyway: running a
+ * script through it attempts a full install first.
  */
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
@@ -85,8 +89,8 @@ async function assertArtifactsPresent(artifactsDir: string): Promise<void> {
 
   if (!dirStat?.isDirectory()) {
     console.error(`[backfill] ARTIFACTS_DIR does not exist here: ${artifactsDir}`)
-    console.error('[backfill] This has to run where the artifacts volume is mounted, e.g.')
-    console.error('[backfill]   docker exec -it <container> pnpm backfill:artifacts')
+    console.error('[backfill] This has to run where the artifacts volume is mounted:')
+    console.error('[backfill]   docker exec -it <container> ./node_modules/.bin/tsx scripts/backfill-artifacts.ts')
     process.exitCode = 1
     throw new Error('artifacts directory not found')
   }

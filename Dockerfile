@@ -27,6 +27,10 @@ ENV DATABASE_URL=postgres://build:build@localhost:5432/build \
 RUN pnpm build
 
 # ─── Runtime ─────────────────────────────────────────────────────────────────
+# Deliberately not `FROM base`: pnpm cannot run scripts here anyway — it tries a
+# full `pnpm install` first and fails on ignored build scripts — so carrying it
+# would add weight for nothing. Maintenance scripts run through tsx directly,
+# see DEPLOY.md.
 FROM node:22-alpine AS runner
 WORKDIR /app
 
@@ -61,6 +65,8 @@ COPY --from=builder /app/src/db ./src/db
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/src/builder ./src/builder
 COPY --from=builder /app/src/config ./src/config
+# tsx resolves the `@/*` alias from here; without it every import fails.
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/node_modules ./node_modules
 
 EXPOSE 3000
