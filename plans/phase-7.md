@@ -10,18 +10,30 @@ Implements the `modupdater-mod` half of REQUIREMENTS §12.6, deferred out of pha
 
 ## Verified toolchain
 
-Checked against Fabric's meta API and the user's own running instance, not assumed:
+Taken from `../Sidequest`, which already builds against these exact Minecraft versions, rather than from what the meta API suggests. Everything below is known-good in practice.
 
 | | |
 |---|---|
-| Minecraft | `26.1.2` |
-| Fabric Loader | `0.19.3` (meta API, for 26.1.2) |
-| Fabric API | `0.155.2+26.1.2` (Modrinth; matches the instance) |
-| Loom | `1.17.19` (latest stable; 1.18 is alpha) |
-| Mappings | **Mojang official** |
-| Java | target 21 — the runtime is 25, Mixin reports compat level JAVA_25 |
+| Minecraft | `26.1.2` and `26.2` |
+| Mappings | **none — Minecraft 26.1+ ships unobfuscated** |
+| Stonecutter | `dev.kikugie.stonecutter` `0.9.7` |
+| Fabric Loom | `1.17.17` |
+| Fabric Loader | `0.19.3` |
+| Fabric API | `0.155.2+26.1.2` / `0.156.0+26.2` |
+| Kotlin | `2.4.10`, via `fabric-language-kotlin 1.13.13+kotlin.2.4.10` |
+| Java | **25** for the Minecraft module, 21 for plain JVM modules |
+| Gradle | `9.6.1` |
 
-**Yarn has no mappings for 26.1.2** — `/v2/versions/yarn/26.1.2` returns `[]`. The instance log confirms the ecosystem is on Mojang names (`net.minecraft.client.Minecraft`, `net.minecraft.world.scores.Scoreboard`, not Yarn's `MinecraftClient`). Using Yarn here is simply not an option.
+Three corrections to the first draft of this plan, all found by reading Sidequest:
+
+- **There are no mappings.** Not Yarn, not Mojang. 26.1+ is unobfuscated, so Loom creates no `mod*` remapping configurations at all. The earlier note about Yarn returning `[]` was true but beside the point.
+- **Java 25, not 21**, for anything on Minecraft's classpath.
+- **Kotlin, not Java.** The earlier "no Kotlin" decision was wrong for this ecosystem: `fabric-language-kotlin` is already in the instance, and every neighbouring mod here is Kotlin.
+
+Two consequences worth carrying over from Sidequest's build file, both of which cost it real debugging:
+
+- `fabric-loader` must be `implementation`, not `compileOnly` — Loom takes the dev-launch loader from the runtime classpath, and declaring it compile-only makes the launcher silently fall back to an older bundled loader.
+- Loom's `include` nests exactly the jars it is handed and does not follow a module's own project dependencies, so every nested module has to be listed explicitly or it dies with `NoClassDefFoundError` on someone else's client.
 
 ---
 
@@ -29,9 +41,11 @@ Checked against Fabric's meta API and the user's own running instance, not assum
 
 1. **The mod never modifies a JAR.** By the time any in-game code runs, Fabric Loader holds every mod JAR open. The mod writes a request; the existing post-exit hook does the swap, when nothing is loaded. This is the whole reason the CLI exists separately and is not negotiable.
 2. **Separate repo, and the platform builds it.** It is an ordinary Fabric mod, so it goes through the same pipeline as every other tracked repo and reaches users through the same manifest — the updater updates itself. That works only because swaps happen pre-launch; an in-process self-updater could not do this.
-3. **No Kotlin.** The instance has `fabric-language-kotlin`, but depending on it for a mod this small adds a dependency and a failure mode for nothing.
+3. **Kotlin, and Stonecutter for multiple Minecraft versions**, matching Sidequest. Targets `26.1.2` and `26.2` from one source tree.
 4. **Reuses the CLI's config, not its own.** `base.url` from `<gameDir>/modupdater.properties` and the token from `<gameDir>/mods/.modupdater/token` — both already written by the installer. Nothing new to configure, and no second copy of the token.
 5. **The mod is optional.** Everything keeps working without it; it only adds mid-session notice and a better launch signal.
+6. **No shared library between the mod and the CLI, and no version-matching logic in the mod.** The mod requests `?mc=<version>` and the server does the filtering it already does correctly, so the mod only has to compare SHA-256 values. That removes the reason to publish `modupdater-cli` as a dependency, and with it the coupling and the release-ordering problem — while still leaving exactly one implementation of the range rules, on the server.
+7. **No hand-written UI framework, and not Sidequest's.** A library gets chosen when Task 4 is reached; nothing before then depends on the answer.
 
 ---
 
@@ -43,11 +57,11 @@ Checked against Fabric's meta API and the user's own running instance, not assum
 
 **Goal:** A mod that builds and loads, and does nothing else.
 
-- Loom `1.17.19`, Mojang mappings, Java 21, Fabric API `0.155.2+26.1.2`
-- `fabric.mod.json` with id `modupdater`, **client-only** (`"environment": "client"`)
+- Stonecutter with targets `26.2` and `26.1.2`, per-version catalogs under `gradle/`, Loom `1.17.17`, Kotlin, Java 25, no mappings
+- `fabric.mod.json` with id `modupdater`, **client-only** (`"environment": "client"`), depending on `fabric-language-kotlin`
 - A client entrypoint that logs its version on init
 
-**Done criteria:** `./gradlew build` produces a JAR; dropping it into the test instance loads without errors and logs on startup.
+**Done criteria:** `./gradlew build` produces a JAR per target; dropping the 26.1.2 one into the `testing` instance loads with no errors and logs on startup.
 
 ---
 
@@ -57,7 +71,7 @@ Checked against Fabric's meta API and the user's own running instance, not assum
 
 - Read `base.url` and the token from the CLI's files; if either is missing, disable silently — a mod that nags about configuration it can fix is worse than one that stays quiet
 - Poll on a background thread: once ~30s after the title screen, then every 15 minutes
-- Reuse the CLI's manifest model and matching rules by **publishing `modupdater-cli` as a library the mod depends on**, so `mcVersionMatch`, hashing and diffing have exactly one implementation across all three pieces
+- Request `?mc=<version>` so the server applies the range rules; the mod compares hashes and nothing else (Decision 6)
 - Never touch the network from the render thread
 
 **Tests:** the polling schedule and the disable-when-unconfigured rule, against a stub.
@@ -70,7 +84,7 @@ Checked against Fabric's meta API and the user's own running instance, not assum
 
 - `FabricLoader.getAllMods()` → mod id, version, and JAR path via `ModContainer.getOrigin()`
 - SHA-256 those JARs once, on a background thread, and cache — 97 mods at ~34 MB each is not something to redo every poll
-- Feed into the CLI's existing `Differ`
+- An update is anything whose SHA-256 differs from what the filtered manifest offers
 
 **Tests:** origin paths that are directories (dev environment) or nested JARs are skipped rather than crashing.
 
@@ -81,7 +95,7 @@ Checked against Fabric's meta API and the user's own running instance, not assum
 **Goal:** Tell the user, without interrupting them.
 
 - A vanilla toast when the poll finds something: "2 mod updates available"
-- A screen listing them — same columns as the CLI dialog — reachable from the toast and from Mod Menu
+- A screen listing them — same columns as the CLI dialog — reachable from the toast and from Mod Menu, built with a UI library chosen at this point (Decision 7)
 - Buttons: **Update on exit** and **Update and quit now**
 - No modal interruption mid-game, ever
 
@@ -142,10 +156,10 @@ The CLI currently rolls back if the session after an update lasted under two min
 
 ## Risks
 
-- **A new MC version with no Yarn mappings** means fewer references to copy from; Mojang mappings are well supported by Loom but most tutorials are written in Yarn.
+- **Unobfuscated Minecraft is recent enough that most documentation is out of date**, describing `mappings` and `mod*` configurations that no longer apply. Sidequest is the reference, not the internet.
 - **Nothing here can be tested without launching the game.** Unit tests cover the CLI-side changes; the mod's own behaviour needs a real session every time, which makes iteration slow.
 - **97 mods, ~34 MB each** — hashing must be cached and off-thread or it will be felt.
-- Publishing the CLI as a library couples the two repos. Worth it to avoid a third copy of the version-matching rules, but it means the mod needs a CLI release to build against.
+- Two Minecraft targets double what has to be verified by hand, and only 26.1.2 can be tested on this machine's instance.
 
 ---
 
