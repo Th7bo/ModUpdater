@@ -32,10 +32,18 @@ export function normalizeMcVersions(raw: unknown): string[] {
   for (const candidate of candidates) {
     if (typeof candidate !== 'string') continue
 
-    const trimmed = candidate.trim()
-    // Compound ranges (">=1.21 <1.22", "1.21 || 1.20") have no single concrete
-    // answer, so we decline rather than pick a bound that may be exclusive.
-    if (trimmed === '' || /\s/.test(trimmed) || trimmed.includes('||')) continue
+    let trimmed = candidate.trim()
+    if (trimmed === '' || trimmed.includes('||')) continue
+
+    // A bounded range like ">=26.1.2 <26.2" is the form Fabric's own templates
+    // produce, and it is precise: the lower bound is the version the JAR was
+    // built for. Take that and drop the exclusive upper bound, which contributes
+    // no version anyone runs. Anything else with a space is not understood.
+    if (/\s/.test(trimmed)) {
+      const bounded = /^(>=?)\s*(\d+\.\d+(?:\.\d+)?)\s+<\s*\d+\.\d+(?:\.\d+)?$/.exec(trimmed)
+      if (!bounded) continue
+      trimmed = bounded[2]!
+    }
 
     // "1.21.x" carries the same meaning as "~1.21": the base is 1.21, and which
     // patch releases exist is decided by mcMatchMode, not by enumerating them.

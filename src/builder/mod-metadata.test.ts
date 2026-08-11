@@ -231,9 +231,18 @@ describe('normalizeMcVersions', () => {
     expect(normalizeMcVersions(['1.21.4', '>=1.21.4', '1.21.5'])).toEqual(['1.21.4', '1.21.5'])
   })
 
-  it('declines compound ranges rather than guessing a bound', () => {
-    expect(normalizeMcVersions('>=1.21 <1.22')).toEqual([])
+  it('takes the lower bound of a bounded range', () => {
+    // The form Fabric's own templates produce. The lower bound is the version
+    // the JAR was built for; the exclusive upper bound names nothing anyone runs.
+    expect(normalizeMcVersions('>=26.1.2 <26.2')).toEqual(['26.1.2'])
+    expect(normalizeMcVersions('>=1.21 <1.22')).toEqual(['1.21'])
+    expect(normalizeMcVersions('> 1.21 < 1.22')).toEqual(['1.21'])
+  })
+
+  it('declines ranges it cannot read as a single version', () => {
     expect(normalizeMcVersions('1.21 || 1.20')).toEqual([])
+    expect(normalizeMcVersions('>=1.21 <=1.22 !=1.21.3')).toEqual([])
+    expect(normalizeMcVersions('anything at all')).toEqual([])
   })
 
   it('declines unparseable input', () => {
