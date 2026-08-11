@@ -168,3 +168,54 @@ The CLI currently rolls back if the session after an update lasted under two min
 - Downloading updates in the background during play (the swap still cannot happen until exit, so it saves only download time)
 - Any server-side component
 - Mods the platform does not build
+
+---
+
+## Status — complete (2026-08-11)
+
+All 7 tasks implemented on `main` (no phase branch, per the working preference
+set during phase 6). `modupdater-mod`: 45 core tests, both Stonecutter targets
+build clean. `modupdater-cli`: 138 tests.
+
+Verified in the real 26.1.2 instance: the mod loads, the toast fires, the screen
+lists updates with their commits, and *Update and quit now* installs on the next
+launch. Acceptance 1-5 and 7-8 met. **Acceptance 6 was met only after a fix** —
+see below.
+
+**Deviations from the plan as written:**
+
+- **Task 4 grew a changelog view.** The screen shows every commit between the
+  installed build and the one on offer, which needed a new `/api/changelog`
+  endpoint on the platform. Requested mid-phase.
+- **A `core` module was added.** Stonecutter runs tests per Minecraft target, and
+  only the active node compiles `src/` directly, so tests ran once for the wrong
+  node and not at all for the other. Everything Minecraft-free moved to `core/`,
+  which compiles once at Java 21 and is nested into both jars.
+- **Stock widgets, not a UI library.** Modern UI and LDLib were both considered;
+  neither has a Fabric build covering 26.1.2 and 26.2, and either would have been
+  a second mod for every user to install.
+- **A "Your mods" tab was added after the phase.** Lists every installed mod and
+  whether the platform built it. Not in the plan; asked for once the rest worked.
+
+**Bugs this phase surfaced, all found by real use rather than by testing:**
+
+- The manifest offered *older* builds, because stale jars sat in `build/libs` and
+  every one was published. It now publishes only the newest release per Minecraft
+  version. Two mods flip-flopped every launch until this was fixed.
+- `>=26.1` was read as the single version `26.1`, so a 26.1.2 instance was offered
+  nothing. Open lower bounds are now treated as a prefix.
+- Fork-sync merge commits filled the changelog with noise.
+- **Acceptance 6 was passing for the wrong reason.** The pre-launch hook called
+  `restoreIfUnconfirmed` directly and never read the launch marker this task
+  added, so *every* update was reverted at the next launch regardless of session
+  length — including one that discarded 8.5 hours. Only the post-exit hook, which
+  does not run when the game has to be killed, ever confirmed anything. Both
+  hooks now go through `resolveAfterSession`.
+
+**Still open:**
+
+- The screen has no automated coverage; it needs a running game.
+- A mod wedges the JVM in a shutdown hook, so the game has to be killed and the
+  post-exit hook never runs. Mitigated by also settling at pre-launch, but the
+  culprit is unidentified — `kill -3` on the next occurrence.
+- `modupdater-mod` has no CI; both targets are built by hand.
