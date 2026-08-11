@@ -53,13 +53,28 @@ try {
     New-Item -ItemType Directory -Force -Path $pkgDir | Out-Null
     Expand-Archive -LiteralPath $zip -DestinationPath $pkgDir -Force
 
+    # Files that came out of a downloaded zip carry the mark of the web, which
+    # blocks them under the default RemoteSigned policy even for their own owner.
+    Get-ChildItem -LiteralPath $pkgDir -Recurse -File |
+        Unblock-File -ErrorAction SilentlyContinue
+
     $installer = Join-Path $pkgDir 'install.ps1'
     if (-not (Test-Path $installer)) {
         Stop-With 'The package is missing install.ps1 - please report this.'
     }
 
     Write-Host ''
-    & $installer
+
+    # Started as a child process rather than called directly.
+    #
+    # This bootstrap runs through `iex`, which executes a string and so is never
+    # subject to the execution policy — but `& $installer` runs a *file*, and on a
+    # default Windows install that is refused outright. The user is usually not an
+    # administrator and cannot lift the machine policy, so the policy is bypassed
+    # for this one child process instead, exactly as install.bat does. It shares
+    # this console, so the installer's prompts still work.
+    $child = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+    & $child -NoProfile -ExecutionPolicy Bypass -File $installer
 } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }
