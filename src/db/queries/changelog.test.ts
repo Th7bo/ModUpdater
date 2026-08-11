@@ -157,6 +157,34 @@ describe('changelogSince', () => {
     expect(changelog.builds[0]?.commits).toEqual([])
   })
 
+  it('drops the merges the fork sync creates', async () => {
+    await build(new Date('2026-01-01'), 'sha-old', [])
+    await build(new Date('2026-01-02'), 'sha-new', [
+      { hash: 'c1', author: 'Dev', message: 'Fix: Ignore armor slot item movements (#6330)' },
+      { hash: 'c2', author: 'Th7bo', message: "Merge remote-tracking branch 'upstream/beta' into beta" },
+      { hash: 'c3', author: 'Dev', message: 'cleanup' },
+      { hash: 'c4', author: 'Th7bo', message: "Merge branch 'beta' into feature" },
+    ])
+
+    const messages = (await changelogSince(db, 'skyhanni', 'sha-old')).builds
+      .flatMap((b) => b.commits.map((c) => c.message))
+
+    // "cleanup" stays: uninformative, but it is a real change the user is getting.
+    expect(messages).toEqual(['Fix: Ignore armor slot item movements (#6330)', 'cleanup'])
+  })
+
+  it('keeps pull request merges, which often carry the only description', async () => {
+    await build(new Date('2026-01-01'), 'sha-old', [])
+    await build(new Date('2026-01-02'), 'sha-new', [
+      { hash: 'c1', author: 'Dev', message: 'Merge pull request #6330 from user/fix-armor-slots' },
+    ])
+
+    const messages = (await changelogSince(db, 'skyhanni', 'sha-old')).builds
+      .flatMap((b) => b.commits.map((c) => c.message))
+
+    expect(messages).toEqual(['Merge pull request #6330 from user/fix-armor-slots'])
+  })
+
   it('ignores failed builds in between', async () => {
     await build(new Date('2026-01-01'), 'sha-old', [])
     await createBuildRun(db, {

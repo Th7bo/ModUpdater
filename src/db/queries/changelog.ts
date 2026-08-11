@@ -29,6 +29,23 @@ export interface Changelog {
   builds: ChangelogBuild[]
 }
 
+/**
+ * Merges created by keeping a fork in step with its upstream (§4.2).
+ *
+ * The platform generates these itself, so on a fork repo they can outnumber the
+ * commits that actually changed something — the changelog exists to answer "what
+ * am I getting", and "Merge remote-tracking branch 'upstream/beta' into beta"
+ * answers nothing.
+ *
+ * `Merge pull request #123 from …` is deliberately kept: on an upstream repo it
+ * is often the only description a change has.
+ */
+const SYNC_MERGE = /^Merge (remote-tracking )?branch\b/i
+
+function isNoise(message: string | null): boolean {
+  return message !== null && SYNC_MERGE.test(message.trim())
+}
+
 function parseCommits(commitsJson: string): ChangelogCommit[] {
   try {
     const parsed: unknown = JSON.parse(commitsJson)
@@ -42,7 +59,7 @@ function parseCommits(commitsJson: string): ChangelogCommit[] {
         message: typeof commit.message === 'string' ? commit.message : null,
         date: typeof commit.date === 'string' ? commit.date : null,
       }
-    })
+    }).filter((commit) => !isNoise(commit.message))
   } catch {
     return []
   }
