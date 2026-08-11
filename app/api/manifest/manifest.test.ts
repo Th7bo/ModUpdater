@@ -272,6 +272,45 @@ describe('GET /api/manifest — mc filter (§12.3)', () => {
     expect((await (await GET(authed('?mc=1.21.5'))).json()).mods).toEqual([])
   })
 
+  it('offers only the newest release when a build carries several', async () => {
+    // SkyOcean's build/libs held 1.17.1 alongside 1.17.2, so both were
+    // collected. Offering the older one is a downgrade, and then the two
+    // flip-flop on every launch.
+    mockListLatestArtifactsByModId.mockResolvedValue([
+      { ...row, modId: 'skyocean', modVersion: '1.17.1', filename: 'SkyOcean-1.17.1-26.1.jar', mcVersions: ['26.1'] },
+      { ...row, modId: 'skyocean', modVersion: '1.17.2', filename: 'SkyOcean-1.17.2-26.1.jar', mcVersions: ['26.1'] },
+    ])
+
+    const body = await (await GET(authed())).json()
+
+    expect(body.mods[0].versions).toHaveLength(1)
+    expect(body.mods[0].versions[0].modVersion).toBe('1.17.2')
+  })
+
+  it('keeps one release per Minecraft version of a multi-version build', async () => {
+    mockListLatestArtifactsByModId.mockResolvedValue([
+      { ...row, modVersion: '1.17.1', filename: 'a-1.17.1-26.1.jar', mcVersions: ['26.1'] },
+      { ...row, modVersion: '1.17.2', filename: 'a-1.17.2-26.1.jar', mcVersions: ['26.1'] },
+      { ...row, modVersion: '1.17.2', filename: 'a-1.17.2-26.2.jar', mcVersions: ['26.2'] },
+    ])
+
+    const body = await (await GET(authed())).json()
+
+    expect(body.mods[0].versions.map((v: { filename: string }) => v.filename))
+      .toEqual(['a-1.17.2-26.1.jar', 'a-1.17.2-26.2.jar'])
+  })
+
+  it('still offers a rebuild of the same version', async () => {
+    mockListLatestArtifactsByModId.mockResolvedValue([
+      { ...row, modVersion: '7.44.0', filename: 'SkyHanni-7.44.0.jar', mcVersions: ['26.1'] },
+    ])
+
+    const body = await (await GET(authed())).json()
+
+    expect(body.mods[0].versions).toHaveLength(1)
+    expect(body.mods[0].versions[0].modVersion).toBe('7.44.0')
+  })
+
   it('tells the client how to compare versions', async () => {
     const body = await (await GET(authed())).json()
 

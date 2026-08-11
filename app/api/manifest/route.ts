@@ -5,6 +5,7 @@ import { parseConfig } from '@/src/config/env'
 import { db } from '@/src/db/client'
 import { listLatestArtifactsByModId, type ManifestArtifact } from '@/src/db/queries/artifacts'
 import { mcMatchMode, mcVersionMatches, type McMatchMode } from '@/src/builder/mod-metadata'
+import { compareModVersions } from '@/src/builder/mod-versions'
 
 interface ManifestVersion {
   modVersion: string | null
@@ -88,7 +89,37 @@ function toManifest(rows: ManifestArtifact[], baseUrl: string): ManifestMod[] {
     })
   }
 
+  for (const mod of mods.values()) {
+    mod.versions = newestPerMinecraftVersion(mod.versions)
+  }
+
   return [...mods.values()]
+}
+
+/**
+ * Keeps only the newest release for each Minecraft version a mod supports.
+ *
+ * A build's collected artifacts can include JARs left in `build/libs` by earlier
+ * builds, so the same mod arrives as 1.17.1 *and* 1.17.2. Publishing both lets a
+ * client be offered the older one — a downgrade, and then a flip-flop between
+ * the two on every launch. Only the newest can be an update.
+ *
+ * Grouped by the Minecraft versions the JAR declares, so a multi-version build
+ * still publishes one artifact per game version.
+ */
+function newestPerMinecraftVersion(versions: ManifestVersion[]): ManifestVersion[] {
+  const newest = new Map<string, ManifestVersion>()
+
+  for (const version of versions) {
+    const key = version.mcVersions.join(',')
+    const existing = newest.get(key)
+
+    if (!existing || compareModVersions(version.modVersion, existing.modVersion) > 0) {
+      newest.set(key, version)
+    }
+  }
+
+  return [...newest.values()]
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
