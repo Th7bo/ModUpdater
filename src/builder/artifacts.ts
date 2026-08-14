@@ -89,8 +89,18 @@ async function subdirBuildLibs(baseDir: string): Promise<string[]> {
  * Shared by collection and cleaning on purpose. The two must agree — a directory
  * collected but not cleaned is exactly how a stale JAR survives into the next
  * build.
+ *
+ * Subprojects are found one level down only, which covers every repo the
+ * platform builds: SkyHanni (`buildSrc`, `annotation-processors`, …) and
+ * Sidequest (eleven `include(...)` modules) both declare theirs flat. A nested
+ * subproject — Gradle's `include("a:b")`, living in `a/b/` — would be missed by
+ * *both* functions, so it would produce no artifacts at all rather than stale
+ * ones. Walking the whole tree instead was rejected: it means descending into
+ * every `build/`, `.gradle` and `run/` directory in the repo.
+ *
+ * Exported so the coverage can be asserted against real repo layouts.
  */
-async function artifactDirs(repoDir: string): Promise<string[]> {
+export async function artifactDirs(repoDir: string): Promise<string[]> {
   return [
     join(repoDir, 'build', 'libs'),
     ...(await subdirBuildLibs(repoDir)),

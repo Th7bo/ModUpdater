@@ -107,6 +107,40 @@ describe('cleanArtifactDirs', () => {
     await expect(readdir(libs).catch(() => 'gone')).resolves.toBe('gone')
   })
 
+  it('covers the layouts of the repos the platform actually builds', async () => {
+    // Sidequest's shape: a root project, eleven flat subprojects, and Stonecutter
+    // version nodes — with the root holding copies of the node JARs under the
+    // same filenames, which is why collectArtifacts alone cannot prove coverage
+    // (dedup drops the duplicates before you can see which directory they came
+    // from).
+    const dirs = [
+      join(repoDir, 'build', 'libs'),
+      join(repoDir, 'ui-api', 'build', 'libs'),
+      join(repoDir, 'platform-core', 'build', 'libs'),
+      join(repoDir, 'versions', '26.1.2', 'build', 'libs'),
+      join(repoDir, 'versions', '26.2', 'build', 'libs'),
+    ]
+    for (const dir of dirs) await writeJar(dir, 'Sidequest-1.0.0.jar')
+
+    const removed = await cleanArtifactDirs(repoDir)
+
+    expect(new Set(removed)).toEqual(new Set(dirs))
+    for (const dir of dirs) {
+      await expect(readdir(dir).catch(() => 'gone')).resolves.toBe('gone')
+    }
+  })
+
+  it('does not reach a nested subproject, and neither does collection', async () => {
+    // A known boundary, not an oversight: Gradle's include("a:b") lives in a/b/.
+    // What matters is that the two agree — a directory collected but not cleaned
+    // is how a stale JAR survives. Missed by both means no artifacts, which is
+    // visible, rather than stale ones, which are not.
+    await writeJar(join(repoDir, 'a', 'b', 'build', 'libs'), 'nested-1.0.0.jar')
+
+    expect(await cleanArtifactDirs(repoDir)).toEqual([])
+    expect(await collectArtifacts(repoDir)).toEqual([])
+  })
+
   it('says nothing was removed when there is nothing built yet', async () => {
     await expect(cleanArtifactDirs(repoDir)).resolves.toEqual([])
   })
