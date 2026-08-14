@@ -16,6 +16,7 @@ const mockCollectArtifacts = vi.fn()
 const mockFilterDismissedArtifacts = vi.fn((paths: string[], _patterns?: string) => paths)
 const mockStoreArtifacts = vi.fn()
 const mockDescribeArtifacts = vi.fn()
+const mockCleanArtifactDirs = vi.fn()
 const mockInsertArtifacts = vi.fn()
 const mockSendBuildStartedNotification = vi.fn()
 const mockSendSuccessNotification = vi.fn()
@@ -81,6 +82,8 @@ vi.mock('@/src/builder/artifacts', () => ({
     mockFilterDismissedArtifacts(paths, patterns),
   storeArtifacts: (...args: unknown[]) => mockStoreArtifacts(...args),
   describeArtifacts: (...args: unknown[]) => mockDescribeArtifacts(...args),
+  cleanArtifactDirs: (...args: unknown[]) => mockCleanArtifactDirs(...args),
+  cleanupOldArtifacts: vi.fn(),
 }))
 
 vi.mock('@/src/db/queries/artifacts', () => ({
@@ -164,6 +167,40 @@ describe('triggerBuild', () => {
     mockUpdateRepo.mockResolvedValue({})
     mockDescribeArtifacts.mockResolvedValue(mockDescribedArtifacts)
     mockInsertArtifacts.mockResolvedValue([])
+    mockCleanArtifactDirs.mockResolvedValue([])
+  })
+
+  it('clears stale JARs before the build, not after (§5)', async () => {
+    // Gradle leaves behind a JAR whose filename changed, so without this the
+    // next build collects the previous version too and the platform offers it
+    // as current. Ordering matters: clearing afterwards would discard the JARs
+    // of the last build that worked.
+    const order: string[] = []
+    mockCleanArtifactDirs.mockImplementation(async () => {
+      order.push('clean')
+      return []
+    })
+    mockRunBuild.mockImplementation(async () => {
+      order.push('build')
+      return { success: true, logTail: 'BUILD SUCCESSFUL', durationMs: 1 }
+    })
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(order).toEqual(['clean', 'build'])
+    // The directory cleared must be the one collected from, or stale JARs
+    // survive in whichever place the two disagree about.
+    expect(mockCleanArtifactDirs.mock.calls[0][0]).toBe(mockCollectArtifacts.mock.calls[0][0])
+  })
+
+  it('still builds when the JARs cannot be cleared', async () => {
+    // A read-only or vanished directory is not a reason to skip the build: the
+    // manifest already publishes only the newest release per Minecraft version.
+    mockCleanArtifactDirs.mockRejectedValue(new Error('permission denied'))
+
+    await triggerBuild('test-repo-id', 'poll')
+
+    expect(mockRunBuild).toHaveBeenCalled()
   })
 
   it('records artifact metadata for the client manifest (§12.1)', async () => {

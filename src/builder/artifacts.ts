@@ -61,8 +61,8 @@ async function collectFromDir(dir: string): Promise<string[]> {
   }
 }
 
-async function collectFromSubdirs(baseDir: string): Promise<string[]> {
-  const artifacts: string[] = []
+async function subdirBuildLibs(baseDir: string): Promise<string[]> {
+  const dirs: string[] = []
 
   try {
     const entries = await readdir(baseDir)
@@ -72,15 +72,65 @@ async function collectFromSubdirs(baseDir: string): Promise<string[]> {
       const entryStat = await stat(entryPath).catch(() => null)
 
       if (entryStat?.isDirectory()) {
-        const subBuildLibs = join(entryPath, 'build', 'libs')
-        artifacts.push(...(await collectFromDir(subBuildLibs)))
+        dirs.push(join(entryPath, 'build', 'libs'))
       }
     }
   } catch {
     // ignore if we can't read baseDir
   }
 
-  return artifacts
+  return dirs
+}
+
+/**
+ * Every directory a built JAR can land in: the root project, each subproject,
+ * and each Stonecutter version node.
+ *
+ * Shared by collection and cleaning on purpose. The two must agree — a directory
+ * collected but not cleaned is exactly how a stale JAR survives into the next
+ * build.
+ */
+async function artifactDirs(repoDir: string): Promise<string[]> {
+  return [
+    join(repoDir, 'build', 'libs'),
+    ...(await subdirBuildLibs(repoDir)),
+    ...(await subdirBuildLibs(join(repoDir, 'versions'))),
+  ]
+}
+
+/**
+ * Empties the JAR output directories before a build (REQUIREMENTS §5).
+ *
+ * Gradle removes only the outputs it still tracks, so a JAR whose filename
+ * changed — which is what a version bump is — is left behind indefinitely. The
+ * next build then collects both, and the platform offers the old one as though
+ * it were current: SkyOcean shipped 1.17.1 alongside 1.17.2 and the two
+ * flip-flopped on every launch.
+ *
+ * Only `build/libs` goes. Compiled classes, Kotlin's incremental state, Loom's
+ * caches and Stonecutter's generated sources all live elsewhere under `build/`,
+ * so the next build is still incremental — deleting a tracked output makes
+ * Gradle re-run the `jar` task alone.
+ *
+ * @returns the directories that existed and were removed
+ */
+export async function cleanArtifactDirs(repoDir: string): Promise<string[]> {
+  const removed: string[] = []
+
+  for (const dir of await artifactDirs(repoDir)) {
+    try {
+      const dirStat = await stat(dir).catch(() => null)
+      if (!dirStat?.isDirectory()) continue
+
+      await rm(dir, { recursive: true, force: true })
+      removed.push(dir)
+    } catch {
+      // A directory we cannot clear is not a reason to skip the build; the
+      // manifest already keeps only the newest release per Minecraft version.
+    }
+  }
+
+  return removed
 }
 
 function deduplicateArtifacts(paths: string[]): string[] {
@@ -112,13 +162,9 @@ function deduplicateArtifacts(paths: string[]): string[] {
 export async function collectArtifacts(repoDir: string): Promise<string[]> {
   const artifacts: string[] = []
 
-  const mainBuildLibs = join(repoDir, 'build', 'libs')
-  artifacts.push(...(await collectFromDir(mainBuildLibs)))
-
-  artifacts.push(...(await collectFromSubdirs(repoDir)))
-
-  const versionsDir = join(repoDir, 'versions')
-  artifacts.push(...(await collectFromSubdirs(versionsDir)))
+  for (const dir of await artifactDirs(repoDir)) {
+    artifacts.push(...(await collectFromDir(dir)))
+  }
 
   return deduplicateArtifacts(artifacts)
 }

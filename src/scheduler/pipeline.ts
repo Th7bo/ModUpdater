@@ -16,6 +16,7 @@ import {
   storeArtifacts,
   describeArtifacts,
   cleanupOldArtifacts,
+  cleanArtifactDirs,
 } from '@/src/builder/artifacts'
 import { insertArtifacts } from '@/src/db/queries/artifacts'
 import { listBuildRuns } from '@/src/db/queries/build-runs'
@@ -26,7 +27,7 @@ import {
 } from '@/src/discord/notifications'
 import { toPublicRepo } from '@/src/db/queries/repos'
 import { enqueueBuild } from './build-queue'
-import { createLogFile, finalizeLog, getRelativeLogPath } from '@/src/logging/activity-log'
+import { appendLog, createLogFile, finalizeLog, getRelativeLogPath } from '@/src/logging/activity-log'
 import { setActiveBuild, clearActiveBuild } from './build-status'
 
 export type TriggerSource = 'poll' | 'webhook' | 'manual' | 'sync'
@@ -153,6 +154,18 @@ async function executeBuild(
     } catch (err) {
       console.error(`[pipeline] Build-start notification failed for ${repo.name}:`, err)
     }
+  }
+
+  // Before the build, not after: a build that fails partway leaves whatever it
+  // managed to produce, and clearing on the way out would also throw away the
+  // JARs of the last build that worked.
+  try {
+    const cleaned = await cleanArtifactDirs(repoDir)
+    if (cleaned.length > 0 && logHandle) {
+      await appendLog(logHandle, `[modupdater] cleared ${cleaned.length} JAR output director${cleaned.length === 1 ? 'y' : 'ies'}`)
+    }
+  } catch (err) {
+    console.error(`[pipeline] Failed to clear JAR outputs for ${repo.name}:`, err)
   }
 
   const jdkVersion = (repo.jdkVersion ?? '21') as JdkVersion
