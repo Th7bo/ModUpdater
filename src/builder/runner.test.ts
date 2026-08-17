@@ -7,7 +7,7 @@ vi.mock('node:child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
 }))
 
-import { runBuild } from './runner'
+import { runBuild, parseTaskArgs } from './runner'
 
 function createMockProcess() {
   const proc = new EventEmitter() as EventEmitter & {
@@ -92,6 +92,22 @@ describe('runBuild', () => {
     )
   })
 
+  it('splits a multi-word task override into separate arguments', async () => {
+    const mockProc = createMockProcess()
+    mockSpawn.mockReturnValue(mockProc)
+
+    const promise = runBuild('/repos/skysoft', 'build -x test')
+
+    mockProc.emit('close', 0)
+    await promise
+
+    expect(mockSpawn).toHaveBeenCalledWith(
+      expect.stringContaining('gradlew'),
+      ['build', '-x', 'test'],
+      expect.objectContaining({ cwd: '/repos/skysoft' })
+    )
+  })
+
   it('returns success: false with error message when spawn emits error', async () => {
     const mockProc = createMockProcess()
     mockSpawn.mockReturnValue(mockProc)
@@ -105,5 +121,63 @@ describe('runBuild', () => {
 
     expect(result.success).toBe(false)
     expect(result.logTail).toBe('spawn ENOENT')
+  })
+})
+
+describe('parseTaskArgs', () => {
+  it('returns a single-word task unchanged', () => {
+    expect(parseTaskArgs('build')).toEqual(['build'])
+    expect(parseTaskArgs('chiseledBuild')).toEqual(['chiseledBuild'])
+  })
+
+  it('splits a task with flags', () => {
+    expect(parseTaskArgs('build -x test')).toEqual(['build', '-x', 'test'])
+  })
+
+  it('splits a task with a leading property', () => {
+    expect(parseTaskArgs('-Pmc=1.21 chiseledBuild')).toEqual([
+      '-Pmc=1.21',
+      'chiseledBuild',
+    ])
+  })
+
+  it('collapses runs of whitespace and trims the edges', () => {
+    expect(parseTaskArgs('  build   --no-daemon\t-x test ')).toEqual([
+      'build',
+      '--no-daemon',
+      '-x',
+      'test',
+    ])
+  })
+
+  it('keeps a double-quoted value with spaces as one argument', () => {
+    expect(parseTaskArgs('build -Pmsg="hello world"')).toEqual([
+      'build',
+      '-Pmsg=hello world',
+    ])
+  })
+
+  it('keeps a single-quoted value with spaces as one argument', () => {
+    expect(parseTaskArgs("build -Pmsg='hello world'")).toEqual([
+      'build',
+      '-Pmsg=hello world',
+    ])
+  })
+
+  it('treats the other quote character as a literal inside a quoted run', () => {
+    expect(parseTaskArgs(`build -Pmsg="it's fine"`)).toEqual([
+      'build',
+      "-Pmsg=it's fine",
+    ])
+  })
+
+  it('preserves an explicitly empty quoted argument', () => {
+    expect(parseTaskArgs('build -Pmsg=""')).toEqual(['build', '-Pmsg='])
+    expect(parseTaskArgs('build ""')).toEqual(['build', ''])
+  })
+
+  it('returns an empty array for blank input', () => {
+    expect(parseTaskArgs('')).toEqual([])
+    expect(parseTaskArgs('   ')).toEqual([])
   })
 })

@@ -29,6 +29,50 @@ export function getAvailableJdkVersions(): JdkVersion[] {
   return ['21', '25']
 }
 
+/**
+ * Split a per-repo build task override into argv elements.
+ *
+ * The override is free text from the web UI (REQUIREMENTS §5), so it can carry
+ * flags and properties alongside the task name — `build -x test`,
+ * `-Pmc=1.21 chiseledBuild`. Passing the whole string as one argv element makes
+ * Gradle read it as a single task name, which it never finds. Quoted runs stay
+ * together so property values with spaces survive.
+ */
+export function parseTaskArgs(task: string): string[] {
+  const args: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+  // Tracks a quoted section, so an empty `""` still yields an empty argument.
+  let quoted = false
+
+  for (const char of task) {
+    if (quote) {
+      if (char === quote) {
+        quote = null
+      } else {
+        current += char
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char
+      quoted = true
+    } else if (/\s/.test(char)) {
+      if (quoted || current.length > 0) {
+        args.push(current)
+        current = ''
+        quoted = false
+      }
+    } else {
+      current += char
+    }
+  }
+
+  if (quoted || current.length > 0) {
+    args.push(current)
+  }
+
+  return args
+}
+
 export function runBuild(
   repoDir: string,
   task: string,
@@ -48,7 +92,7 @@ export function runBuild(
       env.PATH = `${javaHome}/bin:${env.PATH}`
     }
 
-    const proc = spawn(gradlew, [task], {
+    const proc = spawn(gradlew, parseTaskArgs(task), {
       cwd: repoDir,
       shell: process.platform === 'win32',
       env,
