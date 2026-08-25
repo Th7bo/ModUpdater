@@ -1,44 +1,22 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
-import { eq, and } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 
 import { repos } from '@/src/db/schema'
 import type * as schema from '@/src/db/schema'
-import { startPoller } from './poller'
-import { startForkSyncPoller } from './fork-sync-poller'
+import { scheduleRepo } from './repo-schedule'
 
 type Db = NodePgDatabase<typeof schema>
 
 export async function startAllPollers(db: Db): Promise<void> {
-  const pollingRepos = await db
+  const activeRepos = await db
     .select()
     .from(repos)
-    .where(
-      and(
-        eq(repos.detectionMethod, 'polling'),
-        eq(repos.syncPaused, false)
-      )
-    )
+    .where(eq(repos.syncPaused, false))
 
-  console.log(`[scheduler] Starting pollers for ${pollingRepos.length} repo(s)`)
+  console.log(`[scheduler] Scheduling ${activeRepos.length} active repo(s)`)
 
-  for (const repo of pollingRepos) {
-    startPoller(repo)
-  }
-
-  const forkRepos = await db
-    .select()
-    .from(repos)
-    .where(
-      and(
-        eq(repos.mode, 'fork'),
-        eq(repos.syncPaused, false)
-      )
-    )
-
-  console.log(`[scheduler] Starting fork sync pollers for ${forkRepos.length} repo(s)`)
-
-  for (const repo of forkRepos) {
-    startForkSyncPoller(repo)
+  for (const repo of activeRepos) {
+    scheduleRepo(repo)
   }
 }
 
@@ -48,3 +26,4 @@ export { startPoller, stopPoller, stopAllPollers } from './poller'
 export { enqueueBuild, getQueueStats } from './build-queue'
 export { syncForkUpstream } from './upstream-sync'
 export { startForkSyncPoller, stopForkSyncPoller, stopAllForkSyncPollers } from './fork-sync-poller'
+export { scheduleRepo, stopRepoSchedule } from './repo-schedule'

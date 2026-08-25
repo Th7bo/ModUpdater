@@ -4,6 +4,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { getRepo, unpauseRepo } from '@/src/db/queries/repos'
 import { createLogFile, appendLog, finalizeLog } from '@/src/logging/activity-log'
+import { scheduleRepo } from '@/src/scheduler/repo-schedule'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -31,6 +32,10 @@ export async function POST(_req: Request, { params }: RouteContext) {
   if (!updated) {
     return NextResponse.json({ error: 'Failed to re-enable sync' }, { status: 500 })
   }
+
+  // startAllPollers skips paused repos, so a repo that was paused at boot has
+  // no timers at all — un-pausing has to put them back.
+  scheduleRepo(updated)
 
   try {
     const logHandle = await createLogFile(id, 'sync')

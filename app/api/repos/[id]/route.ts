@@ -4,6 +4,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { getRepo, updateRepo, deleteRepo, toPublicRepo } from '@/src/db/queries/repos'
 import { UpdateRepoSchema } from '@/src/config/repo-schema'
+import { scheduleRepo, stopRepoSchedule } from '@/src/scheduler/repo-schedule'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -37,6 +38,10 @@ export async function PATCH(req: Request, { params }: RouteContext) {
   const repo = await updateRepo(db, id, parsed.data)
   if (!repo) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  // The edit may have changed mode, detection method, branch, or interval —
+  // re-read the schedule from the saved row rather than leaving the old timers.
+  scheduleRepo(repo)
+
   return NextResponse.json(toPublicRepo(repo))
 }
 
@@ -52,6 +57,7 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
   const repo = await getRepo(db, id)
   if (!repo) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  stopRepoSchedule(id)
   await deleteRepo(db, id)
   return new Response(null, { status: 204 })
 }

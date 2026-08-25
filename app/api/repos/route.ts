@@ -4,6 +4,7 @@ import { auth } from '@/src/auth'
 import { db } from '@/src/db/client'
 import { listRepos, createRepo, toPublicRepo } from '@/src/db/queries/repos'
 import { CreateRepoSchema } from '@/src/config/repo-schema'
+import { scheduleRepo } from '@/src/scheduler/repo-schedule'
 
 // GET: Any authenticated user can list repos
 export async function GET() {
@@ -29,5 +30,6 @@ export async function POST(req: Request) {
   }
 
   const repo = await createRepo(db, parsed.data)
+  scheduleRepo(repo)
   return NextResponse.json(toPublicRepo(repo), { status: 201 })
 }
